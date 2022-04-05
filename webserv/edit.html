@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+<title>自動澆灌系統</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="w3.css">
+<style>
+.w3-theme {color:#fff !important;background-color:#4CAF50 !important}
+.w3-btn {background-color:#4CAF50;margin-bottom:4px}
+.w3-code{border-left:4px solid #4CAF50}
+.myMenu {margin-bottom:150px}
+</style>
+<body>
+
+<!-- Top -->
+<div class="w3-top">
+  <div class="w3-row w3-white w3-padding">
+    <div class="w3-half" style="margin:4px 0 6px 0"><a href='#'><img src='logo.gif' alt='morelohas.com' style='width:2rem; height:2rem;'></a></div>
+    <div class="w3-half w3-margin-top w3-wide w3-hide-medium w3-hide-small"><div class="w3-right">養成每日定時巡田的好習慣</div></div>
+  </div>
+  <div class="w3-bar w3-theme w3-large" style="z-index:4;">
+    <a class="w3-bar-item w3-button w3-left w3-hide-large w3-hover-white w3-large w3-theme w3-padding-16" href="javascript:void(0)" onclick="w3_open()">&#9776;</a>
+   <a class="w3-bar-item w3-button w3-hide-medium w3-hover-white w3-padding-16" href="javascript:void(0)" onclick="w3_show_nav('menuRef')">主選單</a>
+  </div>
+</div>
+
+<!-- Sidebar -->
+<div class="w3-sidebar w3-bar-block w3-collapse w3-animate-left" style="z-index:3;width:270px" id="mySidebar">
+  <div class="w3-bar w3-hide-large w3-large">
+    <a href="javascript:void(0)" onclick="w3_show_nav('menuRef')" class="w3-bar-item w3-button w3-theme w3-hover-white w3-padding-16" style="width:50%">主選單</a>
+  </div>
+    <a href="javascript:void(0)" onclick="w3_close()" class="w3-button w3-right w3-xlarge w3-hide-large" title="Close Menu">x</a>
+  <div id="menuRef" class="myMenu">
+  <div class="w3-container">
+    <h3>主選單</h3>
+  </div>
+  <a class="w3-bar-item w3-button" href='index.html'>總覽</a>
+  <a class="w3-bar-item w3-button" href='setting.html'>設定</a>
+  <a class="w3-bar-item w3-button" href='edit.html'>新增澆灌</a>
+  </div>
+</div>
+
+<!-- Overlay effect when opening sidebar on small screens -->
+<div class="w3-overlay w3-hide-large" onclick="w3_close()" style="cursor:pointer" title="close side menu" id="myOverlay"></div>
+
+<!-- Main content: shift it to the right by 270 pixels when the sidebar is visible -->
+<div class="w3-main w3-container" style="margin-left:270px;margin-top:117px;">
+    <br><br>
+<div class="w3-panel w3-padding-large w3-card-4 w3-light-grey">
+  <h1 class="w3-jumbo">噴灌設定</h1>
+  <label></label>
+  <table class="w3-table w3-bordered w3-border">
+      <th>
+          <td colspan="2">澆灌工作項目</td>
+      </th>
+      <tr>
+          <td>噴頭(多選為輪流噴灌)</td>
+          <td>
+              <input class="w3-check" type="checkbox" id="m1" name="m1" > <label>噴頭1</label>
+              <input class="w3-check" type="checkbox" id="m2" name="m2" > <label>噴頭2</label>
+              <input class="w3-check" type="checkbox" id="m3" name="m3" > <label>噴頭3</label>
+              <input class="w3-check" type="checkbox" id="m4" name="m4" > <label>噴頭4</label>
+              <input class="w3-check" type="checkbox" id="m5" name="m5" > <label>噴頭5</label>
+              <input class="w3-check" type="checkbox" id="m6" name="m6" > <label>噴頭6</label>
+          </td>
+      </tr>
+      <tr>
+          <td colspan="2">
+                <table class="w3-table w3-border-red w3-leftbar">
+                  <tr>
+                      <td colspan="2">已加入時間設定</td>
+                  </tr>
+                  <tr>
+                      <td colspan="2">
+                          <ul id="lstItems" class="w3-ul w3-card-4" style="background: lightgreen;">
+                          </ul><br>
+                      </td>
+                  </tr>
+                  <tr>
+                      <td>星期幾</td>
+                      <td>
+                          <input class="w3-check" type="checkbox" id="w1" name="w1" > <label>一</label>&nbsp;&nbsp;
+                          <input class="w3-check" type="checkbox" id="w2" name="w2" > <label>二</label>&nbsp;&nbsp;
+                          <input class="w3-check" type="checkbox" id="w3" name="w3" > <label>三</label>&nbsp;&nbsp;
+                          <input class="w3-check" type="checkbox" id="w4" name="w4" > <label>四</label>&nbsp;&nbsp;
+                          <input class="w3-check" type="checkbox" id="w5" name="w5" > <label>五</label>&nbsp;&nbsp;
+                          <input class="w3-check" type="checkbox" id="w6" name="w6" > <label>六</label>&nbsp;&nbsp;
+                          <input class="w3-check" type="checkbox" id="w7" name="w7" > <label>日</label>
+                      </td>
+                  </tr>
+                  <tr>
+                      <td>開始時</td>
+                      <td>
+                          <input id="hour" class="w3-input w3-border w3-light-grey" style="width:3rem;" type="text" name="hour">
+                      </td>
+                  </tr>
+                  <tr>
+                      <td>開始分</td>
+                      <td>
+                          <input id="min" class="w3-input w3-border w3-light-grey" style="width:3rem;" type="text" name="min">
+                      </td>
+                  </tr>
+                  <tr>
+                      <td>澆灌時間長度(分鐘)</td>
+                      <td>
+                          <input id="mlen" class="w3-input w3-border w3-light-grey" style="width:3rem;" type="text" name="mlen">
+                      </td>
+                  </tr>
+                  <tr>
+                      <td colspan="2"><a class="w3-button w3-theme w3-hover-white" onclick="add_item()">加入</a></td>
+                  </tr>
+                </table>
+          </td>
+      </tr>
+  </table>
+  <input type="hidden" id="sid" value="1">
+  <a class="w3-button w3-theme w3-hover-white" onclick="send_submit()">送出</a>
+  <a class="w3-button w3-theme w3-hover-white" href="index.html" target="_blank">取消</a>
+</div>
+
+
+<footer class="w3-panel w3-padding-32 w3-card-4 w3-light-grey w3-center w3-opacity">
+  <p><nav>
+  <!-- a href="/forum/default.asp" target="_blank">FORUM</a> |
+  <a href="/about/default.asp" target="_top">ABOUT</a -->
+  </nav></p>
+</footer>
+
+<!-- END MAIN -->
+</div>
+
+<script>
+// Script to open and close the sidebar
+function w3_open() {
+  document.getElementById("mySidebar").style.display = "block";
+  document.getElementById("myOverlay").style.display = "block";
+}
+ 
+function w3_close() {
+  document.getElementById("mySidebar").style.display = "none";
+  document.getElementById("myOverlay").style.display = "none";
+}
+
+function w3_show_nav(name) {
+  document.getElementById("menuRef").style.display = "none";
+  document.getElementById(name).style.display = "block";
+  w3-open();
+}
+</script>
+
+<script>
+//--------------------
+var lstItems = [];
+//--------------------
+function del_item(obj) {
+    //obj.parentElement.style.display='none';
+    let id=parseInt(obj.parentNode.id.slice(4));
+    obj.parentNode.parentNode.removeChild(obj.parentNode);
+    for(let i=0;i<lstItems.length;i++) {
+        if (lstItems[i].id==id) {
+            lstItems.splice(i, 1);
+            break;
+        }
+    }
+
+}
+//--------------------
+function add_item() {
+    let w=0;
+    let id=lstItems.length;
+    if (id!=0)
+        id = lstItems[lstItems.length-1].id+1;
+    let wstr="週";
+    if (document.getElementById("w1").checked) { w |= 0x01; wstr+="1"; }
+    if (document.getElementById("w2").checked) { w |= 0x02; if(wstr!="週") wstr+= ","; wstr+="2"; }
+    if (document.getElementById("w3").checked) { w |= 0x04; if(wstr!="週") wstr+= ","; wstr+="3"; }
+    if (document.getElementById("w4").checked) { w |= 0x08; if(wstr!="週") wstr+= ","; wstr+="4"; }
+    if (document.getElementById("w5").checked) { w |= 0x10; if(wstr!="週") wstr+= ","; wstr+="5"; }
+    if (document.getElementById("w6").checked) { w |= 0x20; if(wstr!="週") wstr+= ","; wstr+="6"; }
+    if (document.getElementById("w7").checked) { w |= 0x40; if(wstr!="週") wstr+= ","; wstr+="日"; }
+    if (w==0) {
+        alert("請勾選星期幾");
+        return;
+    }
+    let hour=document.getElementById("hour").value;
+    let min=document.getElementById("min").value;
+    let mlen=document.getElementById("mlen").value;
+    if (isNaN(hour) || parseInt(hour)<0 || parseInt(hour)>23) {
+        alert("開始時必須為合法小時數字!");
+        return;
+    }
+    if (isNaN(min) || parseInt(min)<0 || parseInt(min)>59) {
+        alert("開始分必須為合法分鐘數字!");
+        return;
+    }
+    if (isNaN(mlen)) {
+        alert("時間長度必須為合法分鐘數字!");
+        return;
+    }
+    if (mlen.length>2) {
+        alert("時間長度必須小於二位數字!");
+        return;
+    }
+    if (parseInt(mlen)<1) {
+        alert("時間長度必須為大於0的數字!");
+        return;
+    }
+    w=w.toString(16);
+    if (w.length<2)
+        w="0"+w;
+    if (hour<10) hour="0"+parseInt(hour);
+    if (min<10) min="0"+parseInt(min);
+    if (mlen<10) mlen="0"+parseInt(mlen);
+    lstItems.push({
+        "id":id,
+        "wday": w,
+        "hour" : hour,
+        "min" : min,
+        "mlen" : mlen
+    });
+    let lst = document.getElementById("lstItems");
+    let ch = document.createElement('li');
+    ch.id = `ITM_${id}`;
+    ch.innerHTML = `${wstr} / ${hour}:${min} / ${mlen}分鐘  <span onclick="del_item(this)" class="w3-button w3-transparent w3-display-right">&times;</span></li>`;
+    ch.className = "w3-display-container";
+    lst.appendChild(ch);
+    document.getElementById("w1").checked=document.getElementById("w2").checked=document.getElementById("w3").checked=document.getElementById("w4").checked=document.getElementById("w5").checked=document.getElementById("w6").checked=document.getElementById("w7").checked=false;
+    document.getElementById("hour").value="";
+    document.getElementById("min").value="";
+    document.getElementById("mlen").value="";
+}
+
+//--------------------
+function send_submit() {
+    let outstr="X";
+    let motor=0;
+    if (document.getElementById("m1").checked) motor|=0x01;
+    if (document.getElementById("m2").checked) motor|=0x02;
+    if (document.getElementById("m3").checked) motor|=0x04;
+    if (document.getElementById("m4").checked) motor|=0x08;
+    if (document.getElementById("m5").checked) motor|=0x10;
+    if (document.getElementById("m6").checked) motor|=0x20;
+    if (motor==0) {
+        alert("請勾選噴頭");
+        return;
+    }
+    motor=motor.toString(16);
+    for(let j=motor.length;j<4;j++)
+        motor="0"+motor;
+    outstr+=motor;
+    for (let i=0;i<lstItems.length;i++) {
+        outstr+="V";
+        outstr+=lstItems[i].wday;
+        outstr+=lstItems[i].hour + lstItems[i].min + lstItems[i].mlen;
+    }
+    let sid = document.getElementById("sid").value;
+    window.location.href = `edit.html?s=${sid}&d=${encodeURIComponent(outstr)}`;
+    //console.log(outstr);
+}
+//--------------------
+function load_data(body) {
+    //X0031V07060005V78221006
+    if (body.charAt(0)=='X') {
+        body=body.substr(1);
+        let m=parseInt(body.substring(0, 4), 16);
+        if ((m & 0x01) > 0) { document.getElementById("m1").checked=true; }
+        if ((m & 0x02) > 0) { document.getElementById("m2").checked=true; }
+        if ((m & 0x04) > 0) { document.getElementById("m3").checked=true; }
+        if ((m & 0x08) > 0) { document.getElementById("m4").checked=true; }
+        if ((m & 0x10) > 0) { document.getElementById("m5").checked=true; }
+        if ((m & 0x20) > 0) { document.getElementById("m6").checked=true; }
+        body=body.substr(4);
+        while (body.charAt(0)=='V') {
+            body=body.substr(1);
+            let w=parseInt(body.substring(0, 2),16);
+            let wStr="";
+            if ((w & 0x01) > 0) { document.getElementById("w1").checked=true; }
+            if ((w & 0x02) > 0) { document.getElementById("w2").checked=true; }
+            if ((w & 0x04) > 0) { document.getElementById("w3").checked=true; }
+            if ((w & 0x08) > 0) { document.getElementById("w4").checked=true; }
+            if ((w & 0x10) > 0) { document.getElementById("w5").checked=true; }
+            if ((w & 0x20) > 0) { document.getElementById("w6").checked=true; }
+            if ((w & 0x40) > 0) { document.getElementById("w7").checked=true; }
+            body=body.substr(2);
+            document.getElementById("hour").value=body.substr(0,2);
+            document.getElementById("min").value=body.substr(2,2);
+            document.getElementById("mlen").value=body.substr(4,2);
+            body=body.substr(6);
+            add_item();
+        }
+    }
+}
+//--------------------
+
+
+</script>
+
+</body>
+</html>
+
+

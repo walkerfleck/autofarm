@@ -1,0 +1,37 @@
+<div class="w3-panel w3-padding-large w3-card-4 w3-light-grey">
+  <h1 class="w3-jumbo">系統設定</h1>
+  <label></label>
+  <form action="setting.html" method="post">
+  <table class="w3-table w3-bordered w3-border">
+      <th>
+          <td colspan="2">今日系統時間</td>
+      </th>
+      <tr>
+          <td>星期幾</td>
+          <td>
+              <input class="w3-radio" type="radio" name="wday" value="1" checked> <label>一</label>
+              <input class="w3-radio" type="radio" name="wday" value="2" > <label>二</label>
+              <input class="w3-radio" type="radio" name="wday" value="3" > <label>三</label>
+              <input class="w3-radio" type="radio" name="wday" value="4" > <label>四</label>
+              <input class="w3-radio" type="radio" name="wday" value="5" > <label>五</label>
+              <input class="w3-radio" type="radio" name="wday" value="6" > <label>六</label>
+              <input class="w3-radio" type="radio" name="wday" value="7" > <label>日</label>
+          </td>
+      </tr>
+      <tr>
+          <td>修改時間</td>
+          <td>
+              <input type="text" class="w3-select" name="hour" style="width:3rem;" value="_HOUR_">
+              :
+              <input type="text" class="w3-select" name="min" style="width:3rem;" value="_MIN_">
+              :
+              <input type="text" class="w3-select" name="sec" style="width:3rem;" value="_SEC_">
+          </td>
+      </tr>
+  </table>
+  <input type="submit" class="w3-button w3-theme w3-hover-white" value="送出"></a>
+  <a class="w3-button w3-theme w3-hover-white" href="index.html" target="_blank">取消</a>
+  </form>
+</div>
+
+

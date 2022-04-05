@@ -1,0 +1,5 @@
+xxd -i index.html > ../inc/pages.h
+xxd -i w3.css >> ../inc/pages.h
+xxd -i logo.gif >> ../inc/pages.h
+xxd -i edit.html >> ../inc/pages.h
+xxd -i setting.html >> ../inc/pages.h

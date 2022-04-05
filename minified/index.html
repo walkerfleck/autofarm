@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<title>自動澆灌系統</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="w3.css">
+<style>
+.w3-theme {color:#fff !important;background-color:#4CAF50 !important}
+.w3-btn {background-color:#4CAF50;margin-bottom:4px}
+.w3-code{border-left:4px solid #4CAF50}
+.myMenu {margin-bottom:150px}
+</style>
+<body>
+
+<!-- Top -->
+<div class="w3-top">
+  <div class="w3-row w3-white w3-padding">
+    <div class="w3-half" style="margin:4px 0 6px 0"><a href='#'><img src='logo.gif' alt='morelohas.com' style='width:6rem; height:6rem;'></a></div>
+    <div class="w3-half w3-margin-top w3-wide w3-hide-medium w3-hide-small"><div class="w3-right">養成每日定時巡田的好習慣</div></div>
+  </div>
+  <div class="w3-bar w3-theme w3-large" style="z-index:4;">
+    <a class="w3-bar-item w3-button w3-left w3-hide-large w3-hover-white w3-large w3-theme w3-padding-16" href="javascript:void(0)" onclick="w3_open()">&#9776;</a>
+   <a class="w3-bar-item w3-button w3-hide-medium w3-hover-white w3-padding-16" href="javascript:void(0)" onclick="w3_show_nav('menuRef')">主選單</a>
+  </div>
+</div>
+
+<!-- Sidebar -->
+<div class="w3-sidebar w3-bar-block w3-collapse w3-animate-left" style="z-index:3;width:270px" id="mySidebar">
+  <div class="w3-bar w3-hide-large w3-large">
+    <a href="javascript:void(0)" onclick="w3_show_nav('menuRef')" class="w3-bar-item w3-button w3-theme w3-hover-white w3-padding-16" style="width:50%">主選單</a>
+  </div>
+    <a href="javascript:void(0)" onclick="w3_close()" class="w3-button w3-right w3-xlarge w3-hide-large" title="Close Menu">x</a>
+  <div id="menuRef" class="myMenu">
+  <div class="w3-container">
+    <h3>主選單</h3>
+  </div>
+  <a class="w3-bar-item w3-button" href='index.html'>總覽</a>
+  <a class="w3-bar-item w3-button" href='setting.html'>設定</a>
+  <a class="w3-bar-item w3-button" href='edit.html'>新增澆灌</a>
+  </div>
+</div>
+
+<div class="w3-overlay w3-hide-large" onclick="w3_close()" style="cursor:pointer" title="close side menu" id="myOverlay"></div>
+
+<div class="w3-main w3-container" style="margin-left:270px;margin-top:117px;">
+    <br><br>
+<div w3-include-html="content.html"></div>
+
+
+<footer class="w3-panel w3-padding-32 w3-card-4 w3-light-grey w3-center w3-opacity">
+  <p><nav>
+  </nav></p>
+</footer>
+
+</div>
+
+<script>
+function w3_open() {
+  document.getElementById("mySidebar").style.display = "block";
+  document.getElementById("myOverlay").style.display = "block";
+}
+ 
+function w3_close() {
+  document.getElementById("mySidebar").style.display = "none";
+  document.getElementById("myOverlay").style.display = "none";
+}
+
+function w3_show_nav(name) {
+  document.getElementById("menuRef").style.display = "none";
+  document.getElementById(name).style.display = "block";
+  w3-open();
+}
+</script>
+
+<script>
+function includeHTML() {
+  var z, i, elmnt, file, xhttp;
+  z = document.getElementsByTagName("*");
+  for (i = 0; i < z.length; i++) {
+    elmnt = z[i];
+    file = elmnt.getAttribute("w3-include-html");
+    if (file) {
+      xhttp = new XMLHttpRequest();
+      xhttp.onreadystatechange = function() {
+        if (this.readyState == 4) {
+          if (this.status == 200) {elmnt.innerHTML = this.responseText;}
+          if (this.status == 404) {elmnt.innerHTML = "Page not found.";}
+          elmnt.removeAttribute("w3-include-html");
+          includeHTML();
+        }
+      }      
+      xhttp.open("GET", file, true);
+      xhttp.send();
+      return;
+    }
+  }
+};
+
+
+includeHTML();
+
+</script>
+
+</body>
+</html>
+

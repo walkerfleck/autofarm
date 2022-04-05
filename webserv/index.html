@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<title>自動澆灌系統</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="w3.css">
+<style>
+.w3-theme {color:#fff !important;background-color:#4CAF50 !important}
+.w3-btn {background-color:#4CAF50;margin-bottom:4px}
+.w3-code{border-left:4px solid #4CAF50}
+.myMenu {margin-bottom:150px}
+</style>
+<body>
+
+<!-- Top -->
+<div class="w3-top">
+  <div class="w3-row w3-white w3-padding">
+    <div class="w3-half" style="margin:4px 0 6px 0"><a href='#'><img src='logo.gif' alt='morelohas.com' style='width:2rem; height:2rem;'></a></div>
+    <div class="w3-half w3-margin-top w3-wide w3-hide-medium w3-hide-small"><div class="w3-right">養成每日定時巡田的好習慣</div></div>
+  </div>
+  <div class="w3-bar w3-theme w3-large" style="z-index:4;">
+    <a class="w3-bar-item w3-button w3-left w3-hide-large w3-hover-white w3-large w3-theme w3-padding-16" href="javascript:void(0)" onclick="w3_open()">&#9776;</a>
+   <a class="w3-bar-item w3-button w3-hide-medium w3-hover-white w3-padding-16" href="javascript:void(0)" onclick="w3_show_nav('menuRef')">主選單</a>
+  </div>
+</div>
+
+<!-- Sidebar -->
+<div class="w3-sidebar w3-bar-block w3-collapse w3-animate-left" style="z-index:3;width:270px" id="mySidebar">
+  <div class="w3-bar w3-hide-large w3-large">
+    <a href="javascript:void(0)" onclick="w3_show_nav('menuRef')" class="w3-bar-item w3-button w3-theme w3-hover-white w3-padding-16" style="width:50%">主選單</a>
+  </div>
+    <a href="javascript:void(0)" onclick="w3_close()" class="w3-button w3-right w3-xlarge w3-hide-large" title="Close Menu">x</a>
+  <div id="menuRef" class="myMenu">
+  <div class="w3-container">
+    <h3>主選單</h3>
+  </div>
+  <a class="w3-bar-item w3-button" href='index.html'>總覽</a>
+  <a class="w3-bar-item w3-button" href='setting.html'>設定</a>
+  <a class="w3-bar-item w3-button" href='edit.html'>新增澆灌</a>
+  </div>
+</div>
+
+<div class="w3-overlay w3-hide-large" onclick="w3_close()" style="cursor:pointer" title="close side menu" id="myOverlay"></div>
+
+<div class="w3-main w3-container" style="margin-left:270px;margin-top:117px;">
+    <br><br>
+<div id="array_content"></div>
+
+
+<footer class="w3-panel w3-padding-32 w3-card-4 w3-light-grey w3-center w3-opacity">
+  <p><nav>
+  </nav></p>
+</footer>
+
+</div>
+
+<script>
+function w3_open() {
+  document.getElementById("mySidebar").style.display = "block";
+  document.getElementById("myOverlay").style.display = "block";
+}
+ 
+function w3_close() {
+  document.getElementById("mySidebar").style.display = "none";
+  document.getElementById("myOverlay").style.display = "none";
+}
+
+function w3_show_nav(name) {
+  document.getElementById("menuRef").style.display = "none";
+  document.getElementById(name).style.display = "block";
+  w3-open();
+}
+</script>
+
+<script>
+    
+    function GetContentArray() {
+        var elmnt, xhttp;
+        elmnt = document.getElementById("array_content");
+        xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+          if (this.readyState == 4) {
+              if (this.status == 404) {elmnt.innerHTML = "Page not found.";}
+              if (this.status == 200) {
+                  //elmnt.innerHTML = this.responseText;
+                  // parse response Text
+                  let body = this.responseText;
+                  let setc = 0;
+                  //  mmmm wwhhmmll 
+                  // X0031V07060005V78221006
+                  elmnt.innerHTML="";
+                  while (body.charAt(0)=='X') {
+                      let lstItems = [];
+                      body=body.substr(1);
+                      let m=parseInt(body.substring(0, 4), 16);
+                      let mStr="";
+                      if ((m & 0x01) > 0) { if (mStr!="") mStr+= ","; mStr += "1"; }
+                      if ((m & 0x02) > 0) { if (mStr!="") mStr+= ","; mStr += "2"; }
+                      if ((m & 0x04) > 0) { if (mStr!="") mStr+= ","; mStr += "3"; }
+                      if ((m & 0x08) > 0) { if (mStr!="") mStr+= ","; mStr += "4"; }
+                      if ((m & 0x10) > 0) { if (mStr!="") mStr+= ","; mStr += "5"; }
+                      if ((m & 0x20) > 0) { if (mStr!="") mStr+= ","; mStr += "6"; }
+                      elmnt.innerHTML+=`<div class="w3-panel w3-padding-large w3-card-4 w3-light-grey"> <h1 class="w3-jumbo">澆灌設定</h1> `;
+                      elmnt.innerHTML+=`<label>噴灌設備 : ${mStr}</label>`;
+                      body=body.substr(4);
+                      let sprayc = 0;
+                      while (body.charAt(0)=='V') {
+                          body=body.substr(1);
+                          let w=parseInt(body.substring(0, 2),16);
+                          let wStr="";
+                          if ((w & 0x01) > 0) { if (wStr!="") wStr+= ","; wStr += "週1"; }
+                          if ((w & 0x02) > 0) { if (wStr!="") wStr+= ","; wStr += "週2"; }
+                          if ((w & 0x04) > 0) { if (wStr!="") wStr+= ","; wStr += "週3"; }
+                          if ((w & 0x08) > 0) { if (wStr!="") wStr+= ","; wStr += "週4"; }
+                          if ((w & 0x10) > 0) { if (wStr!="") wStr+= ","; wStr += "週5"; }
+                          if ((w & 0x20) > 0) { if (wStr!="") wStr+= ","; wStr += "週6"; }
+                          if ((w & 0x40) > 0) { if (wStr!="") wStr+= ","; wStr += "週日"; }
+                          body=body.substr(2);
+                          let h, m, l;
+                          h = body.substr(0,2);
+                          m = body.substr(2,2);
+                          l = body.substr(4,2);
+                          elmnt.innerHTML+=`<table class="w3-table w3-bordered w3-border"> <tr> <td colspan="2">設定組${sprayc}</td> </tr> <tr> <td width="30%">日期</td> <td>${wStr}</td> </tr> <tr> <td>開始時間</td><td>${h}:${m}</td> </tr> <tr> <td>澆灌時間</td> <td>${l}分鐘</td> </tr> </table>`;
+                          body=body.substr(6);
+                          sprayc++;  
+                      }
+                      elmnt.innerHTML+=`<a class="w3-button w3-theme w3-hover-white" href="edit.html?s=${setc}" >修改</a> </div>`;
+                      setc++;  
+                  }
+              }
+          }
+        }      
+        xhttp.open("GET", "content.html", true);
+        xhttp.send();
+        
+    }
+
+
+GetContentArray();
+
+</script>
+
+</body>
+</html>
+

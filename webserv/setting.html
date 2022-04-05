@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<title>自動澆灌系統</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="w3.css">
+<style>
+.w3-theme {color:#fff !important;background-color:#4CAF50 !important}
+.w3-btn {background-color:#4CAF50;margin-bottom:4px}
+.w3-code{border-left:4px solid #4CAF50}
+.myMenu {margin-bottom:150px}
+</style>
+<body>
+
+<!-- Top -->
+<div class="w3-top">
+  <div class="w3-row w3-white w3-padding">
+    <div class="w3-half" style="margin:4px 0 6px 0"><a href='#'><img src='logo.gif' alt='morelohas.com' style='width:2rem; height:2rem;'></a></div>
+    <div class="w3-half w3-margin-top w3-wide w3-hide-medium w3-hide-small"><div class="w3-right">養成每日定時巡田的好習慣</div></div>
+  </div>
+  <div class="w3-bar w3-theme w3-large" style="z-index:4;">
+    <a class="w3-bar-item w3-button w3-left w3-hide-large w3-hover-white w3-large w3-theme w3-padding-16" href="javascript:void(0)" onclick="w3_open()">&#9776;</a>
+   <a class="w3-bar-item w3-button w3-hide-medium w3-hover-white w3-padding-16" href="javascript:void(0)" onclick="w3_show_nav('menuRef')">主選單</a>
+  </div>
+</div>
+
+<!-- Sidebar -->
+<div class="w3-sidebar w3-bar-block w3-collapse w3-animate-left" style="z-index:3;width:270px" id="mySidebar">
+  <div class="w3-bar w3-hide-large w3-large">
+    <a href="javascript:void(0)" onclick="w3_show_nav('menuRef')" class="w3-bar-item w3-button w3-theme w3-hover-white w3-padding-16" style="width:50%">主選單</a>
+  </div>
+    <a href="javascript:void(0)" onclick="w3_close()" class="w3-button w3-right w3-xlarge w3-hide-large" title="Close Menu">x</a>
+  <div id="menuRef" class="myMenu">
+  <div class="w3-container">
+    <h3>主選單</h3>
+  </div>
+  <a class="w3-bar-item w3-button" href='index.html'>總覽</a>
+  <a class="w3-bar-item w3-button" href='setting.html'>設定</a>
+  <a class="w3-bar-item w3-button" href='edit.html'>新增澆灌</a>
+  </div>
+</div>
+
+<!-- Overlay effect when opening sidebar on small screens -->
+<div class="w3-overlay w3-hide-large" onclick="w3_close()" style="cursor:pointer" title="close side menu" id="myOverlay"></div>
+
+<!-- Main content: shift it to the right by 270 pixels when the sidebar is visible -->
+<div class="w3-main w3-container" style="margin-left:270px;margin-top:117px;">
+    <br><br>
+<div class="w3-panel w3-padding-large w3-card-4 w3-light-grey">
+  <h1 class="w3-jumbo">系統設定</h1>
+  <label></label>
+  <form action="setting.html" method="post">
+  <table class="w3-table w3-bordered w3-border">
+      <th>
+          <td colspan="2">今日系統時間 : <span id="nowtime"></span></td>
+      </th>
+      <tr>
+          <td>日期</td>
+          <td>
+              年 <input type="text" class="w3-select" id="year" name="hour" style="width:3rem;" value="">
+              /
+              月 <input type="text" class="w3-select" id="mon" name="min" style="width:3rem;" value="">
+              /
+              日 <input type="text" class="w3-select" id="day" name="sec" style="width:3rem;" value="">
+          </td>
+      </tr>
+      <tr>
+          <td>修改時間</td>
+          <td>
+              時 <input type="text" class="w3-select" id="hour" name="hour" style="width:3rem;" value="">
+              :
+              分 <input type="text" class="w3-select" id="min" name="min" style="width:3rem;" value="">
+              :
+              秒 <input type="text" class="w3-select" id="sec" name="sec" style="width:3rem;" value="">
+          </td>
+      </tr>
+  </table>
+  <a class="w3-button w3-theme w3-hover-white" onclick="submit_set();">送出</a>
+  <a class="w3-button w3-theme w3-hover-white" href="index.html">取消</a>
+  </form>
+</div>
+
+
+
+<footer class="w3-panel w3-padding-32 w3-card-4 w3-light-grey w3-center w3-opacity">
+  <p><nav>
+  <!-- a href="/forum/default.asp" target="_blank">FORUM</a> |
+  <a href="/about/default.asp" target="_top">ABOUT</a -->
+  </nav></p>
+</footer>
+
+<!-- END MAIN -->
+</div>
+
+<script>
+// Script to open and close the sidebar
+function w3_open() {
+  document.getElementById("mySidebar").style.display = "block";
+  document.getElementById("myOverlay").style.display = "block";
+}
+ 
+function w3_close() {
+  document.getElementById("mySidebar").style.display = "none";
+  document.getElementById("myOverlay").style.display = "none";
+}
+
+function w3_show_nav(name) {
+  document.getElementById("menuRef").style.display = "none";
+  document.getElementById(name).style.display = "block";
+  w3-open();
+}
+</script>
+
+<script>
+function RefreshTime() {
+    var xhttp;
+    var elmnt=document.getElementById('nowtime');
+
+    xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+        if (this.readyState == 4) {
+            if (this.status == 200) {
+                var body = this.responseText;
+                // yyyymmddhhmmss
+                let y=body.substr(0,4);
+                let M=body.substr(4,2);
+                let d=body.substr(6,2);
+                let h=body.substr(8,2);
+                let m=body.substr(10,2);
+                let s=body.substr(12,2);
+                elmnt.innerText=`${y}/${M}/${d} ${h}:${m}:${s}`;
+            }
+            if (this.status == 404) {elmnt.innerHTML = "TIME ERROR";}
+        }
+    }      
+    xhttp.open("GET", "gettime.html", true);
+    xhttp.send();
+
+};
+
+function RefreshData() {
+    var xhttp;
+    let y,M,d,h,m,s;
+    y=document.getElementById("year");
+    M=document.getElementById("mon");
+    d=document.getElementById("day");
+    h=document.getElementById("hour");
+    m=document.getElementById("min");
+    s=document.getElementById("sec");
+
+    xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+        if (this.readyState == 4) {
+            if (this.status == 200) {
+                var body = this.responseText;
+                // yyyymmddhhmmss
+                y.value=body.substr(0,4);
+                M.value=body.substr(4,2);
+                d.value=body.substr(6,2);
+                h.value=body.substr(8,2);
+                m.value=body.substr(10,2);
+                s.value=body.substr(12,2);
+            }
+            if (this.status == 404) {}
+        }
+    }      
+    xhttp.open("GET", "gettime.html", true);
+    xhttp.send();
+}
+
+
+function submit_set() {
+    let y,M,d,h,m,s;
+    y=document.getElementById("year").value;
+    M=document.getElementById("mon").value;
+    d=document.getElementById("day").value;
+    h=document.getElementById("hour").value;
+    m=document.getElementById("min").value;
+    s=document.getElementById("sec").value;
+    if (y=="" || M=="" || d=="" || h=="" || m=="" || s=="" ||
+        isNaN(y) || isNaN(M) || isNaN(d) || isNaN(h) || isNaN(m) || isNaN(s)) {
+        alert('請輸入正確數值!');
+        return;
+    }
+    if (y.length!=4 || parseInt(y)<2020) {
+        alert('請輸入正確 西元年!');
+        return;
+    }
+    if (M.length>2 || parseInt(M)<1 || parseInt(M)>11) {
+        alert('請輸入正確 月!');
+        return;
+    }
+    if (d.length>2 || parseInt(d)<0 || parseInt(d)>31) {
+        alert('請輸入正確 日!');
+        return;
+    }
+    if (h.length>2 || parseInt(h)<0 || parseInt(h)>23) {
+        alert('請輸入正確 時!');
+        return;
+    }
+    if (m.length>2 || parseInt(m)<0 || parseInt(m)>59) {
+        alert('請輸入正確 分!');
+        return;
+    }
+    if (s.length>2 || parseInt(s)<0 || parseInt(s)>59) {
+        alert('請輸入正確 秒!');
+        return;
+    }
+    window.location.href = `setting.html?s=${y}${M}${d}${h}${m}${s}`;
+}
+
+RefreshData();
+
+
+setInterval(RefreshTime, 1000);
+
+
+</script>
+
+</body>
+</html>
+
+
