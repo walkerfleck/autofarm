@@ -329,8 +329,8 @@ void main(void) {
     // initial watchdog timer
     //watchdog_init(15000);
     //watchdog_start();
-	//if(xTaskCreate(state_thread, ((const char*)"state_machine"), 512, NULL, tskIDLE_PRIORITY + 3 + PRIORITIE_OFFSET, hMainThread) != pdPASS)
-	//	rtl_printf("\n\r%s xTaskCreate(state_thread) failed", __FUNCTION__);
+	if(xTaskCreate(state_thread, ((const char*)"state_machine"), 512, NULL, tskIDLE_PRIORITY + 3 + PRIORITIE_OFFSET, hMainThread) != pdPASS)
+		rtl_printf("\n\r%s xTaskCreate(state_thread) failed", __FUNCTION__);
 
     // ----------------------------------------------------
     // Initial gpio and motor controllers
