@@ -1,0 +1,77 @@
+# Prerequisites
+*.d
+
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Linker output
+*.ilk
+*.map
+*.exp
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+# *.a
+*.la
+*.lo
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+# *.so
+# *.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Kernel Module Compile Results
+*.mod*
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
+
+# temporary files
+#
+*.swp
+.*.swp
+*.c~
+*.h~
+*.xls#
+
+# build out file directories
+GCC-RELEASE/application
+
+
+# toolchain uncompressed binaries
+tools/arm-none-eabi-gcc/4_8-2014q3
+
+tools/arm-none-eabi-gcc/4_8-2014q3.tar
+tools/arm-none-eabi-gcc/4_8-2014q3.tara
+tools/arm-none-eabi-gcc/4_8-2014q3.tarb
+tools/arm-none-eabi-gcc/4_8-2014q3.tarc
+tools/arm-none-eabi-gcc/gcc-arm-none-eabi-4_8-2014q3-20140805-linux.tar.bz2
+project/parkey2/example_sources
+project/parkey2/EWARM-RELEASE
+
+
