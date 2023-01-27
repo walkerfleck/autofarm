@@ -1,5 +1,9 @@
 /*
- *  
+ *
+ * todo
+ *   1. 使用array queue, 取代timer
+ *   2. 增加GetTime request來對時, SNTP有時太慢了
+ *   3. ping好像久了會有問題, 就採用last alive來看看是否網路ok
  *
  *  Routines to access hardware
  *
@@ -8,16 +12,6 @@
  *  This module is a confidential and proprietary property of RealTek and
  *  possession or use of this module requires written permission of RealTek.
  */
-
-// 設計為自動化農業之 IoT gateway
-// 設備的configuration, 需要讓它先上網, 需要使用 bluetooth來做第一次設定
-// 透過手機, 讓gateway取得wifi連線, 這樣才能跟雲端交換訊息
-// 要不然, 只能local端設定
-//
-// 所有的configuration都是由雲端設定
-// 設定好後, 會保存一份備份在flash上面
-//
-//
 #include "FreeRTOS.h"
 #include "cmsis_os.h"
 #include "task.h"
@@ -40,7 +34,6 @@
 #include <cJSON.h>
 #include <httpd/httpd.h>
 #include "pages.h"
-#include "MQTTClient.h"
 
 //#define __CONCURRENT_MODE__ 1
 //========================================================================================================
@@ -53,9 +46,6 @@
     #define THIS_WIFI_MODE RTW_MODE_STA
 #endif
 //========================================================================================================
-uint8_t g_ReconnectWifi=0;   // 
-uint8_t g_NetState=0;   // 0: not connected,  1: local enabled,  2:  wan enabled
-//========================================================================================================
 #define REQ_THREAD_STACK    400
 #define CMD_THREAD_STACK    400
 //========================================================================================================
@@ -66,7 +56,7 @@ TaskHandle_t hReqThread, hSysThread, hCmdThread;
 //========================================================================================================
 // should save the data to flash memory
 
-sys_profile_t sys_profile;
+struct sys_profile_t sys_profile;
 /*
 char dev_ssid[20]="TP-Link_09B1";
 char dev_pass[20]="0930710512";
@@ -126,86 +116,7 @@ void crc32(const void *data, size_t n_bytes, uint32_t* crc) {
 
 }
 //========================================================================================================
-//========================================================================================================
-// Garbage collection routines
-//========================================================================================================
-sTaskTime *garbageTaskTime=NULL;
-sDevTask *garbageDevTask=NULL;
-//========================================================================================================
-sDevTask *AllocDevTask() {
-    if (garbageDevTask!=NULL) {
-        sDevTask *ret=garbageDevTask;
-        garbageDevTask=ret->next;
-        return ret;
-    }
-    else {
-        return (sDevTask *) malloc(sizeof(sDevTask));
-    }
-}
-//========================================================================================================
-void FreeDevTask(sDevTask *p) {
-    p->next = garbageDevTask;
-    garbageDevTask=p;
-}
-//========================================================================================================
-sTaskTime *AllocTaskTime() {
-    if (garbageTaskTime!=NULL) {
-        sTaskTime *ret=garbageTaskTime;
-        garbageTaskTime=ret->next;
-        return ret;
-    }
-    else {
-        return (sTaskTime *) malloc(sizeof(sTaskTime));
-    }
-}
-//========================================================================================================
-void FreeTaskTime(sTaskTime *p) {
-    p->next = garbageTaskTime;
-    garbageTaskTime=p;
-}
-//========================================================================================================
-// 解碼儲存在buffer裡的data, 轉成linklist, 連結至sys_profile裡面
-void DecodeTaskTimeBuf(char *buf, int length) {
-    sTaskTime *pTaskTime=buf;
-    sTaskTime *lastnode=NULL;
-    int idx=0;
-
-    sys_profile.TaskTime.head=NULL;
-    while (idx<length) {
-        sTaskTime *node = AllocTaskTime();
-        if (lastnode!=NULL)
-            lastnode->next = node;
-        lastnode=node;
-        pTaskTime=(sTaskTime *)(buf+idx);
-        memcpy(node, pTaskTime, sizeof(sTaskTime)-8);
-        node->DevTaskHead=NULL;
-        node->next=NULL;
-        // first node
-        if (sys_profile.TaskTime.head==NULL)
-            sys_profile.TaskTime.head=node;
-        idx += sizeof(sTaskTime)-8;
-        sDevTask *pDevTask=(sDevTask *)(buf+idx);
-        sDevTask *lastdnode=NULL;
-        int i;
-        //有device設定
-        if (node->count_DevTask>0) {
-            for (i=0;i<node->count_DevTask;i++) {
-                pDevTask=(sDevTask *)(buf+idx);
-                sDevTask *dnode=AllocDevTask();
-                if (lastdnode!=NULL)
-                    lastdnode->next=dnode;
-                lastdnode=dnode;
-                if (node->DevTaskHead==NULL)
-                    node->DevTaskHead=dnode;
-                memcpy(dnode, pDevTask, sizeof(sDevTask)-4);
-                idx += sizeof(sDevTask)-4;
-                dnode->next=NULL;
-            }
-        }
-    }
-}
-//========================================================================================================
-void save_profile_to_flash_offset(int offset, int len) {
+void  save_profile_to_flash() {
     flash_t         flash;
     int loop = 0;
     uint32_t address = FLASH_APP_BASE;
@@ -216,50 +127,16 @@ void save_profile_to_flash_offset(int offset, int len) {
     crc32(p+4, sizeof(sys_profile)-4, &crc);
     rtl_printf("New CRC=%u!\r\n", crc);
     sys_profile.crc = crc;
-    // write crc
-    ptr = (uint32_t *)&sys_profile;
-    device_mutex_lock(RT_DEV_LOCK_FLASH);
-    flash_erase_sector(&flash, address+(loop<<2));
-    flash_write_word(&flash, address+(loop<<2), *ptr);
-    device_mutex_unlock(RT_DEV_LOCK_FLASH);
-
-    for(loop=offset;loop<(offset+len)/4;loop++) {
-        device_mutex_lock(RT_DEV_LOCK_FLASH);
-        flash_erase_sector(&flash, address+(loop<<2));
-        device_mutex_unlock(RT_DEV_LOCK_FLASH);
-    }
-    for(loop = offset, ptr = ((uint32_t *)&sys_profile) + offset/4; loop < (offset+len)/4; loop++, ptr++)
-    {
-        device_mutex_lock(RT_DEV_LOCK_FLASH);
-        flash_write_word(&flash, address+(loop<<2), *ptr);
-        device_mutex_unlock(RT_DEV_LOCK_FLASH);
-    }
-
-
-}
-//========================================================================================================
-void  save_profile_to_flash() {
-    flash_t         flash;
-    int loop = 0;
-    uint32_t address = FLASH_APP_BASE;
-    uint32_t *ptr = (uint32_t *)&sys_profile;
-    char *p=(char *)&sys_profile;
-    uint32_t crc;
-    int total_len=sizeof(sys_profile)-4;
-
-    crc32(p+4, total_len-4, &crc);
-    rtl_printf("New CRC=%u!\r\n", crc);
-    sys_profile.crc = crc;
 
     rtl_printf("Write System Profile into Flash!\r\n");
     // erase and write
-    for(loop = 0; loop < total_len/4; loop++)
+    for(loop = 0; loop < sizeof(sys_profile)/4; loop++)
     {
         device_mutex_lock(RT_DEV_LOCK_FLASH);
         flash_erase_sector(&flash, address+(loop<<2));
         device_mutex_unlock(RT_DEV_LOCK_FLASH);
     }
-    for(loop = 0, ptr = (uint32_t *)&sys_profile; loop < total_len/4; loop++, ptr++)
+    for(loop = 0, ptr = (uint32_t *)&sys_profile; loop < sizeof(sys_profile)/4; loop++, ptr++)
     {
         device_mutex_lock(RT_DEV_LOCK_FLASH);
         flash_write_word(&flash, address+(loop<<2), *ptr);
@@ -298,14 +175,6 @@ void read_profile_from_flash() {
     if (sys_profile.crc != crc) {
         rtl_printf("calculated_crc=%u, profile_crc=%u\r\n", crc, sys_profile.crc);
         memset(&sys_profile, 0, sizeof(sys_profile));
-        strcpy(sys_profile.dev_ssid,"0000");
-        strcpy(sys_profile.dev_pass, "0000");
-        strcpy(sys_profile.req_url, "https://morelohas.com");
-        strcpy(sys_profile.ota_url, "https//morelohas.com");
-        strcpy(sys_profile.ota_file, "/fmupd/ota.bin");
-        sys_profile.req_port=443;     // 443
-        sys_profile.ota_port=443;     // 443
-        memset(&(sys_profile.dev), 0xff, sizeof(sys_profile.dev));
 
         // update crc, erase and write
         rtl_printf("Rewrite Flash....\r\n");
@@ -353,12 +222,6 @@ void homepage_cb(struct httpd_conn *conn)
     char *body=index_html;
     unsigned int body_len=index_html_len;
 
-    // the gateway is in reset mode
-    if (sys_profile.Server_Mode!=0) {
-        body=index_ok_html;
-        body_len=index_ok_html_len;
-    }
-
 	// test log to show brief header parsing
 	httpd_conn_dump_header(conn);
 
@@ -384,7 +247,6 @@ void homepage_cb(struct httpd_conn *conn)
 	httpd_conn_close(conn);
 }
 //========================================================================================================
-    /*
 void process_edit(char *add_script,struct httpd_conn *conn) {
     char *s=NULL, *d=NULL;
     add_script[0]=0;
@@ -492,7 +354,6 @@ void process_setting(char *add_script,struct httpd_conn *conn) {
         sprintf(add_script, "<script>alert('設定完畢');</script>");
     }
 }
-*/
 //========================================================================================================
 struct sDocRecord {
     const char *filename;
@@ -508,27 +369,23 @@ const char *strdoctype[]={
     "image/gif"
 };
 //========================================================================================================
-#define DOC_W3_CSS                  0
-#define DOC_WAITING_GIF             1
-//#define DOC_EDIT_HTML           2
-//#define DOC_EDIT_CONTENT_HTML   3
-//#define DOC_SETTING_HTML        4
-//#define DOC_SET_CONTENT_HTML    5
+#define DOC_W3_CSS              0
+#define DOC_LOGO_GIF            1
+#define DOC_EDIT_HTML           2
+#define DOC_EDIT_CONTENT_HTML   3
+#define DOC_SETTING_HTML        4
+#define DOC_SET_CONTENT_HTML    5
 //========================================================================================================
-#define TOTAL_DOCS              2
+#define TOTAL_DOCS              6
 //========================================================================================================
-//char *filelist[TOTAL_DOCS] = { "/w3.css", "/logo.gif", "/edit.html", "/setting.html" };
-char *filelist[TOTAL_DOCS] = { "/w3.css", "/waiting.gif" };
+char *filelist[TOTAL_DOCS] = { "/w3.css", "/logo.gif", "/edit.html", "/setting.html" };
 //========================================================================================================
-//char *bodylist[TOTAL_DOCS] = { w3_css, logo_gif, edit_html, setting_html };
-char *bodylist[TOTAL_DOCS] = { w3_css, waiting_gif };
+char *bodylist[TOTAL_DOCS] = { w3_css, logo_gif, edit_html, setting_html };
 //========================================================================================================
-//int *bodylenlist[TOTAL_DOCS] = { &w3_css_len, &logo_gif_len, &edit_html_len, &setting_html_len };
-int *bodylenlist[TOTAL_DOCS] = { &w3_css_len, &waiting_gif_len };
+int *bodylenlist[TOTAL_DOCS] = { &w3_css_len, &logo_gif_len, &edit_html_len, &setting_html_len };
 //========================================================================================================
-struct sDocRecord docRecords[TOTAL_DOCS];// = {
-/*
-    {"/w3.css",  w3_css, w3_css_len, strdoctype[1]}, 
+struct sDocRecord docRecords[TOTAL_DOCS]; /* = {
+    {"/w3.css",  w3_css, w3_css_len, strdoctype[1]},
     {"/logo.gif",  logo_gif, logo_gif_len, strdoctype[2]},
     {"/edit.html",  edit_html, edit_html_len, strdoctype[0]},
     {"/setting.html",  setting_html, setting_html_len, strdoctype[0]},
@@ -546,7 +403,7 @@ void init_docs() {
             docRecords[i].doctype = strdoctype[0];
         else if (strstr(docRecords[i].filename, ".gif")!=NULL)
             docRecords[i].doctype = strdoctype[2];
-/*
+
         if (strstr(docRecords[i].filename, "edit.html")!=NULL) {
             docRecords[i].fun_ptr=&process_edit;
         }
@@ -555,7 +412,6 @@ void init_docs() {
         }
         else
             docRecords[i].fun_ptr=NULL;
-            */
     }
 }
 //========================================================================================================
@@ -597,7 +453,6 @@ void direct_cb(struct httpd_conn *conn) {
 	httpd_conn_close(conn);
 }
 //========================================================================================================
-/*
 void gettime_cb(struct httpd_conn *conn) {
     char body[40];
     body[0]=0;
@@ -619,9 +474,7 @@ void gettime_cb(struct httpd_conn *conn) {
 
 	httpd_conn_close(conn);
 }
-*/
 //========================================================================================================
-    /*
 void content_cb(struct httpd_conn *conn) {
 	// test log to show brief header parsing
 	httpd_conn_dump_header(conn);
@@ -672,7 +525,6 @@ void content_cb(struct httpd_conn *conn) {
 
 	httpd_conn_close(conn);
 }
-    */
 //========================================================================================================
 void fc_htm_cb(struct httpd_conn *conn)
 {
@@ -700,218 +552,7 @@ void fc_htm_cb(struct httpd_conn *conn)
 
 	httpd_conn_close(conn);
 }
-//========================================================================================================
-int connectWifi(char *ssid, char *pass) {
-    printf("\n\rConnecting to AP\n");
-    if(wifi_connect(ssid, RTW_SECURITY_WPA2_AES_PSK, pass, strlen(ssid), strlen(pass), -1, NULL) == RTW_SUCCESS)
-        LwIP_DHCP(0, DHCP_START);
 
-    int timeout=20;
-    while (timeout>0 && wifi_is_ready_to_transceive(RTW_STA_INTERFACE)!=RTW_SUCCESS) {
-        vTaskDelay(1 * configTICK_RATE_HZ);
-        timeout --;
-    }
-    if (timeout==0)
-        return -1;
-    return 0;
-}
-
-//========================================================================================================
-uint8_t global_MQTTMessage[128];
-//========================================================================================================
-void messageArrived(MessageData* data)
-{
-    int len=127;
-	mqtt_printf(MQTT_INFO, "Message arrived on topic %.*s: %.*s\n", data->topicName->lenstring.len, data->topicName->lenstring.data,
-		data->message->payloadlen, (char*)data->message->payload);
-    if (data->message->payloadlen<=127)
-        len=data->message->payloadlen;
-    memcpy(global_MQTTMessage, data->message->payload, len);
-}
-
-//========================================================================================================
-uint8_t MQTT_connected=0;
-MQTTClient mqtt_client;
-Network mqtt_network;
-MQTTPacket_connectData mqtt_connectData = MQTTPacket_connectData_initializer;
-//========================================================================================================
-char* MQTTLogin(char *uuser, char *upass)
-{
-	unsigned char sendbuf[150], readbuf[150];
-    unsigned char pubtopic[50], subtopic[50];
-	int rc = 0, count = 0;
-    uint8_t error=0;
-	char* address = "139.162.5.214";
-    wifi_get_mac_address(this_mac);
-    sprintf(subtopic, "MLHS/IoT/V1/%s/Ack", this_mac);  // command return '0': success
-    sprintf(pubtopic, "MLHS/IoT/V1/%s", this_mac);
-	char* sub_topic = subtopic;
-	char* pub_topic = pubtopic;
-
-    if (MQTT_connected==0) {    
-        NetworkInit(&mqtt_network);
-        MQTTClientInit(&mqtt_client, &mqtt_network, 30000, sendbuf, sizeof(sendbuf), readbuf, sizeof(readbuf));
-
-        //mqtt_printf(MQTT_INFO, "Wait Wi-Fi to be connected.");
-        while(wifi_is_ready_to_transceive(RTW_STA_INTERFACE) != RTW_SUCCESS) {
-            vTaskDelay(5000 / portTICK_PERIOD_MS);
-        }
-        mqtt_printf(MQTT_INFO, "Wi-Fi okay.");
-        
-        //mqtt_printf(MQTT_INFO, "Connect Network \"%s\"", address);
-        mqtt_connectData.username.cstring = "morelohas";
-        mqtt_connectData.password.cstring = "NspNspVrHolqOini22244#";
-
-        while ((rc = NetworkConnect(&mqtt_network, address, 1883)) != 0){
-            //mqtt_printf(MQTT_INFO, "Return code from network connect is %d\n", rc);
-            vTaskDelay(1000 / portTICK_PERIOD_MS);
-        }
-        mqtt_printf(MQTT_INFO, "\"%s\" Connected", address);
-
-        mqtt_connectData.MQTTVersion = 3;
-        mqtt_connectData.clientID.cstring = this_mac;
-
-        mqtt_printf(MQTT_INFO, "Start MQTT connection");
-        while ((rc = MQTTConnect(&mqtt_client, &mqtt_connectData)) != 0){
-            //mqtt_printf(MQTT_INFO, "Return code from MQTT connect is %d\n", rc);
-            vTaskDelay(1000 / portTICK_PERIOD_MS);
-        }
-        mqtt_printf(MQTT_INFO, "MQTT Connected");
-
-        mqtt_printf(MQTT_INFO, "Subscribe to Topic: %s", sub_topic);
-        if ((rc = MQTTSubscribe(&mqtt_client, sub_topic, QOS2, messageArrived)) != 0) 
-            error=1; //mqtt_printf(MQTT_INFO, "Return code from MQTT subscribe is %d\n", rc);
-        if (error==0)
-            MQTT_connected=1;
-    }
-    
-	//mqtt_printf(MQTT_INFO, "Publish Topics: %s", pub_topic);
-
-    // zero the message
-    global_MQTTMessage[0]=0;
-    MQTTMessage message;
-    char payload[100];
-    int retry=0;
-
-    message.qos = QOS1;
-    message.retained = 0;
-    message.payload = payload;
-    sprintf(payload, "{\"c\":\"L\",\"u\":\"%s\",\"p\":\"%s\"}", uuser, upass);
-    message.payloadlen = strlen(payload);
-
-
-	while (retry<5)
-	{
-
-        if ((rc = MQTTPublish(&mqtt_client, pub_topic, &message)) != 0)
-            ; //mqtt_printf(MQTT_INFO,"Return code from MQTT publish is %d\n", rc);
-
-        // yield cpu to receive packet
-		if ((rc = MQTTYield(&mqtt_client, 2000)) != 0)
-			; //mqtt_printf(MQTT_INFO,"Return code from yield is %d\n", rc);
-        // packet received from server
-        if (global_MQTTMessage[0]!=0)
-            break;
-        retry++;
-
-		vTaskDelay(2000);
-	}
-
-    // close connection
-    //MQTTDisconnect(&mqtt_client);
-
-    if (retry>=5)
-        return NULL;
-
-    return global_MQTTMessage;
-}
-//========================================================================================================
-// 如果wifi已經連線成功, 就不需render wifi格子
-// 用文字來顯示等待, 分開顯示 : 正在連線wifi... 正在登入雲端主機...
-// 前端用promise來處理二個request
-// 連線完成後, 重新開機, 就進入STA+long request mode, 
-void home_post_cb(struct httpd_conn *conn)
-{
-	// POST /test_post
-	if(httpd_request_is_method(conn, "POST")) {
-		size_t read_size;
-		uint8_t buf[50];
-		size_t content_len = conn->request.content_len;
-		uint8_t *body = (uint8_t *) malloc(content_len + 1);
-        uint8_t *p;
-		uint8_t ssid[36];
-		uint8_t pass[36];
-		uint8_t uuser[36];
-		uint8_t upass[36];
-
-		if(body) {
-			// read HTTP body
-			memset(body, 0, content_len + 1);
-			read_size = httpd_request_read_data(conn, body, content_len);
-
-			// write HTTP response
-			httpd_response_write_header_start(conn, "200 OK", "application/json", 0);
-            // "Content-Type", "application/json;charset=UTF-8"
-			//httpd_response_write_header(conn, "Content-Type", "application/json;charset=UTF-8");
-			httpd_response_write_header(conn, "Connection", "close");
-			httpd_response_write_header_finish(conn);
-
-
-            // body : {"ssid":"asdf","pass":"qwer","uuser":"1234","upass":"zxcv"}
-            p=strtok(body, "{}\",:");
-            while (p!=NULL) {
-                if (strcmp(p, "ssid")==0) {
-                    strcpy(ssid, strtok(NULL, "{}\",:"));
-                }
-                else if (strcmp(p, "pass")==0) {
-                    strcpy(pass, strtok(NULL, "{}\",:"));
-                }
-                else if (strcmp(p, "uuser")==0) {
-                    strcpy(uuser, strtok(NULL, "{}\",:"));
-                }
-                else if (strcmp(p, "upass")==0) {
-                    strcpy(upass, strtok(NULL, "{}\",:"));
-                }
-                p=strtok(NULL, "{}\",:");
-            }
-            int wret = connectWifi(ssid, pass);
-            if (wret!=0)
-                strcpy(buf, "{\"status\":-1, \"msg\":\"failed to connect wifi\"}");
-            else {
-                if (MQTTLogin(uuser, upass)==NULL)
-                    strcpy(buf, "{\"status\":-2, \"msg\":\"failed to login server\"}");
-                else {
-                    strcpy(buf, "{\"status\":0, \"msg\":\"ok\"}");
-                    // success means the data is correct,
-                    // write to flash 
-                    strcpy(sys_profile.dev_ssid, ssid);
-                    strcpy(sys_profile.dev_pass, pass);
-                    sys_profile.Server_Mode=1;
-                    // write dev_ssid && dev_pass
-                    save_profile_to_flash_offset(4, 72);
-                    // write Server_Mode
-                    save_profile_to_flash_offset(260, 4);
-		            vTaskDelay(5000);
-                    sys_reset();
-                }
-            }
-			httpd_response_write_data(conn, buf, strlen(buf));
-			//httpd_response_write_data(conn, body, strlen(body));
-		}
-		else {
-			// HTTP/1.1 500 Internal Server Error
-			httpd_response_internal_server_error(conn, NULL);
-		}
-	    free(body);
-	}
-	else {
-		// HTTP/1.1 405 Method Not Allowed
-		httpd_response_method_not_allowed(conn, NULL);
-	}
-
-	httpd_conn_close(conn);
-}
-//========================================================================================================
 /*
 void test_get_cb(struct httpd_conn *conn)
 {
@@ -979,6 +620,42 @@ void test_post_htm_cb(struct httpd_conn *conn)
 	httpd_conn_close(conn);
 }
 
+void test_post_cb(struct httpd_conn *conn)
+{
+	// POST /test_post
+	if(httpd_request_is_method(conn, "POST")) {
+		size_t read_size;
+		uint8_t buf[50];
+		size_t content_len = conn->request.content_len;
+		uint8_t *body = (uint8_t *) malloc(content_len + 1);
+
+		if(body) {
+			// read HTTP body
+			memset(body, 0, content_len + 1);
+			read_size = httpd_request_read_data(conn, body, content_len);
+
+			// write HTTP response
+			httpd_response_write_header_start(conn, "200 OK", "text/plain", 0);
+			httpd_response_write_header(conn, "Connection", "close");
+			httpd_response_write_header_finish(conn);
+			memset(buf, 0, sizeof(buf));
+			sprintf(buf, "%d bytes from POST: ", read_size);
+			httpd_response_write_data(conn, buf, strlen(buf));
+			httpd_response_write_data(conn, body, strlen(body));
+			free(body);
+		}
+		else {
+			// HTTP/1.1 500 Internal Server Error
+			httpd_response_internal_server_error(conn, NULL);
+		}
+	}
+	else {
+		// HTTP/1.1 405 Method Not Allowed
+		httpd_response_method_not_allowed(conn, NULL);
+	}
+
+	httpd_conn_close(conn);
+}
 */
 
 //
@@ -990,16 +667,6 @@ void test_post_htm_cb(struct httpd_conn *conn)
 //
 //
 //********************************************************************************************************
-//  HTTP request routines
-//
-//
-//
-//
-//********************************************************************************************************
-//========================================================================================================
-//void start_interactive_mode(void);
-//********************************************************************************************************
-//========================================================================================================
 #if CONFIG_LWIP_LAYER
 extern struct netif xnetif[NET_IF_NUM]; 
 #endif
@@ -1009,7 +676,7 @@ void StartAPMode() {
     int i;
     char ssid[60];
 
-    if(wifi_on(RTW_MODE_STA_AP) < 0){
+    if(wifi_on(RTW_MODE_AP) < 0){
         printf("\n\rwifi_on failed\n");
         return;
     }
@@ -1031,7 +698,7 @@ void StartAPMode() {
     int timeout = 20;
     while(1) {
         char essid[33];
-        if(wext_get_ssid(WLAN1_NAME, (unsigned char *) essid) > 0) {
+        if(wext_get_ssid(WLAN0_NAME, (unsigned char *) essid) > 0) {
             if(strcmp((const char *) essid, (const char *)ssid) == 0) {
                 printf("\n\r %s started\n", ssid);
                 break;
@@ -1044,15 +711,12 @@ void StartAPMode() {
         vTaskDelay(1 * configTICK_RATE_HZ);
         timeout --;
     }
-    xnetif[1].ip_addr.addr=0x500CA8C0;
-    xnetif[1].gw.addr=0x010CA8C0;
 
     printf("\n\rStart DHCP server\n");
     // For more setting about DHCP, please reference fATWA in atcmd_wifi.c.
 #if CONFIG_LWIP_LAYER
-    dhcps_init(&xnetif[1]);
+    dhcps_init(&xnetif[0]);
 #endif
-    rtl_printf("\r\nThe default host IP is : 192.168.12.80\r\n");
     
 }
 //********************************************************************************************************
@@ -1062,16 +726,6 @@ void StartAPMode() {
 //
 //
 //********************************************************************************************************
-//========================================================================================================
-void StopAPMode() {
-    dhcps_deinit();
-    //            LwIP_DHCP(0, DHCP_STOP);
-    vTaskDelay(500);
-    g_NetState = 1;
-    wifi_disconnect();
-    vTaskDelay(500);
-    wifi_off();
-}
 //========================================================================================================
 // 檢查url開頭
 // 如果是http://開頭, 就回傳HTTPC_SECURE_NONE
@@ -1113,97 +767,50 @@ struct sPacket {
 void wlan_thread(void* data) {
 
 
-    if (sys_profile.Server_Mode==0) {           // httpd server
-        rtl_printf("\r\nwlan thread starting...\r\n");
-        // waiting the system stable
+    rtl_printf("\r\nwlan thread starting...\r\n");
+    // waiting the system stable
 #if defined(CONFIG_WIFI_NORMAL) && defined(CONFIG_NETWORK)
-        //wlan_network();
+	//wlan_network();
 #endif
 
-        rtl_printf("\r\nLwIP_Init...\r\n");
-        LwIP_Init();
-        //rtl_printf("\r\nwifi_manager_init...\r\n");
-        //wifi_manager_init();
-        rtl_printf("\r\nStartAPMode...\r\n");
-        //wifi_on(THIS_WIFI_MODE);
-        StartAPMode();
+    rtl_printf("\r\nLwIP_Init...\r\n");
+    LwIP_Init();
+    //rtl_printf("\r\nwifi_manager_init...\r\n");
+    //wifi_manager_init();
+    rtl_printf("\r\nStartAPMode...\r\n");
+    //wifi_on(THIS_WIFI_MODE);
+    StartAPMode();
 
 
-        //rtw_wifi_setting_t setting;
-        //wifi_get_setting(WLAN0_NAME,&setting);
-        //wifi_show_setting(WLAN0_NAME,&setting);
-     
+	//rtw_wifi_setting_t setting;
+	//wifi_get_setting(WLAN0_NAME,&setting);
+	//wifi_show_setting(WLAN0_NAME,&setting);
+    rtl_printf("\r\nThe default host IP is : 192.168.1.80\r\n");
+ 
 
-        httpd_reg_page_callback("/", homepage_cb);
-        httpd_reg_page_callback("/index.html", homepage_cb);
-        httpd_reg_page_callback(docRecords[DOC_W3_CSS].filename, direct_cb);
-        httpd_reg_page_callback(docRecords[DOC_WAITING_GIF].filename, direct_cb);
-    	httpd_reg_page_callback("/home_post", home_post_cb);
-    	//httpd_reg_page_callback("/home_post_step2", home_post_step2_cb);
-    //	httpd_reg_page_callback(docRecords[DOC_LOGO_GIF].filename, direct_cb);
-    //	httpd_reg_page_callback(docRecords[DOC_EDIT_HTML].filename, direct_cb);
-    //	httpd_reg_page_callback(docRecords[DOC_EDIT_CONTENT_HTML].filename, direct_cb);
-    //	httpd_reg_page_callback(docRecords[DOC_SETTING_HTML].filename, direct_cb);
-    //	httpd_reg_page_callback(docRecords[DOC_SET_CONTENT_HTML].filename, direct_cb);
-    //	httpd_reg_page_callback("/gettime.html", gettime_cb);
-    //	httpd_reg_page_callback("/content.html", content_cb);
-    //	httpd_reg_page_callback("/test_get", test_get_cb);
-    //	httpd_reg_page_callback("/test_post.htm", test_post_htm_cb);
-        httpd_reg_page_callback("/fc.html", fc_htm_cb);
-    //	httpd_reg_page_callback("/test_post", home_post_cb);
-        if(httpd_start(80, 5, 4096, HTTPD_THREAD_SINGLE, HTTPD_SECURE_NONE) != 0) {
-            printf("ERROR: httpd_start");
-            httpd_clear_page_callbacks();
-        }
+   	httpd_reg_page_callback("/", homepage_cb);
+	httpd_reg_page_callback("/index.html", homepage_cb);
+	httpd_reg_page_callback(docRecords[DOC_W3_CSS].filename, direct_cb);
+	httpd_reg_page_callback(docRecords[DOC_LOGO_GIF].filename, direct_cb);
+	httpd_reg_page_callback(docRecords[DOC_EDIT_HTML].filename, direct_cb);
+	httpd_reg_page_callback(docRecords[DOC_EDIT_CONTENT_HTML].filename, direct_cb);
+	httpd_reg_page_callback(docRecords[DOC_SETTING_HTML].filename, direct_cb);
+	httpd_reg_page_callback(docRecords[DOC_SET_CONTENT_HTML].filename, direct_cb);
+	httpd_reg_page_callback("/gettime.html", gettime_cb);
+	httpd_reg_page_callback("/content.html", content_cb);
+//	httpd_reg_page_callback("/test_get", test_get_cb);
+//	httpd_reg_page_callback("/test_post.htm", test_post_htm_cb);
+	httpd_reg_page_callback("/fc.html", fc_htm_cb);
+//	httpd_reg_page_callback("/test_post", test_post_cb);
+	if(httpd_start(80, 5, 4096, HTTPD_THREAD_SINGLE, HTTPD_SECURE_NONE) != 0) {
+		printf("ERROR: httpd_start");
+		httpd_clear_page_callbacks();
+	}
 
-        while (global_stop==0) {
-            //rtl_printf("\r\nNetwork Trigger\r\n");
-            vTaskDelay(2000);
-        }
-    }   //sys_profile.Server_Mode==0
-    else {
-        // normal wifi client mode
-        LwIP_Init();
-        wifi_manager_init();
-        if(wifi_on(RTW_MODE_STA) < 0){
-            printf("\n\rwifi_on failed\n");
-        }
-        while (g_NetState<2) {
-            while (wifi_is_up(RTW_STA_INTERFACE)==0) {
-                vTaskDelay(500);
-            }
-            wifi_set_autoreconnect(0);
-            if(wifi_connect(sys_profile.dev_ssid, RTW_SECURITY_WPA2_AES_PSK , sys_profile.dev_pass, strlen(sys_profile.dev_ssid), strlen(sys_profile.dev_pass), -1, NULL) == RTW_SUCCESS)
-            {
-                printf("\n\rWiFi Connected.\n\r");
-                LwIP_DHCP(0, DHCP_START);
-            }
-            else
-            {
-                printf("\n\rWiFi Failed.\n\r");
-                vTaskDelay(2000);
-                continue;
-            }
-            rtw_wifi_setting_t setting;
-            wifi_get_setting(WLAN0_NAME,&setting);
-            wifi_show_setting(WLAN0_NAME,&setting);
-
-            wifi_get_mac_address(this_mac);
-            printf("\n\rMAC Address is :%s\n\r", this_mac);
-            while(wifi_is_ready_to_transceive(RTW_STA_INTERFACE) != RTW_SUCCESS) {
-                vTaskDelay(5000 / portTICK_PERIOD_MS);
-            }
-            printf("\n\rWiFi Ready.\n\r");
-            g_NetState=2;
-        }   // while (g_NetState<2)
-
-        // MQTT loop
-        while (global_stop==0) {
-            //rtl_printf("\r\nNetwork Trigger\r\n");
-            vTaskDelay(2000);
-        }
-
-    }   // normal wifi client mode
+    while (global_stop==0) {
+        //rtl_printf("\r\nNetwork Trigger\r\n");
+        vTaskDelay(2000);
+    }
 
 exit:
 	/* Kill init thread after all init tasks done */

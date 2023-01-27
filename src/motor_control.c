@@ -21,8 +21,6 @@
 extern QueueHandle_t pSystemQueue;       // sensor detection queue, created by main.c
 extern QueueHandle_t pMotorCmdQueue;     // motor command queue, created by main.c
 //========================================================================================================
-gpio_t gpio_pwm_indicator;
-gpio_t gpio_pwm_lock;
 gpio_t gpio_user_button;
 gpio_t gpio_p_sensor;
 gpio_t gpio_v_sensor;
@@ -36,64 +34,20 @@ gpio_t gpio_v_sensor;
 #ifdef __PARKEY_VER_2__
 
 //========================================================================================================
-SemaphoreHandle_t xMutexPWM;
+SemaphoreHandle_t xMutexGlobal;
 //========================================================================================================
 // Emulate PWM generator
-gtimer_t timer_pwm;
+gtimer_t timer_global;
 //========================================================================================================
-struct sPWM {
-    gpio_t *handle;
-    uint32_t period;
-    uint32_t period_counter;
-    uint32_t width;
-};
-struct sPWM lstPWM[5];
-
-//========================================================================================================
-void SetPWM(gpio_t *h, uint32_t period, uint32_t width) {
-    int i;
-    xSemaphoreTake(xMutexPWM, portMAX_DELAY);
-    // 重複的gpio就蓋過去
-    for(i=0;i<4;i++) {
-        if (lstPWM[i].handle==h)
-            break;
-    }
-    if (i>=4) {
-        for(i=0;i<4;i++) {
-            if (lstPWM[i].handle==NULL || lstPWM[i].handle==h)
-                break;
-        }
-    }
-    lstPWM[i].period = period/100;
-    lstPWM[i].width = width/100;
-    lstPWM[i].handle  = h;
-    lstPWM[i].period_counter  = 0;
-    gpio_write(lstPWM[i].handle, ~0);
-    xSemaphoreGive(xMutexPWM);
-}
-//========================================================================================================
-void pwm_timer_timeout_handler(uint32_t id) {
+// interrup every 1ms
+void global_timer_timeout_handler(uint32_t id) {
     int i;
     //gpio_write(&gpio_user_button, !gpio_read(&gpio_user_button));
-    xSemaphoreTakeFromISR(xMutexPWM, pdTRUE);
-    //            gpio_write(lstPWM[0].handle, !gpio_read(lstPWM[0].handle));
-    //            gpio_write(lstPWM[1].handle, !gpio_read(lstPWM[1].handle));
-    for(i=0;i<4;i++) {
-        if (lstPWM[i].handle!=NULL) {
-            lstPWM[i].period_counter++;
-            // period到了反轉
-            if (lstPWM[i].period_counter==lstPWM[i].period) {
-                gpio_write(lstPWM[i].handle, !gpio_read(lstPWM[i].handle));
-                lstPWM[i].period_counter=0;
-            }
-            if (lstPWM[i].period_counter==lstPWM[i].width) {
-                gpio_write(lstPWM[i].handle, !gpio_read(lstPWM[i].handle));
-            }
-        }
-        else
-            break;
-    }
-    xSemaphoreGiveFromISR(xMutexPWM, pdTRUE);
+    xSemaphoreTakeFromISR(xMutexGlobal, pdTRUE);
+
+
+
+    xSemaphoreGiveFromISR(xMutexGlobal, pdTRUE);
 }
 //========================================================================================================
 //GPIO definitions
@@ -169,15 +123,8 @@ void motor_thread(void* in_id) {
 
 
 
-    //rtl_printf("\n\rPWM init...\n\r");
-    SetPWM(&gpio_pwm_indicator, 20000, 1500);
-    SetPWM(&gpio_pwm_lock, 20000, 500);
-
     rtl_printf("\n\rPWM timer setup...\n\r");
     // 
-    gtimer_init(&timer_pwm, TIMER3);
-    gtimer_start(&timer_pwm);
-    gtimer_start_periodical(&timer_pwm, 1000, (void*)pwm_timer_timeout_handler, &lstPWM);
 
     gpio_init(&gpio_p_sensor, GPIO_P_SENSOR);
     gpio_dir(&gpio_p_sensor, PIN_INPUT);    // Direction: Input
@@ -264,34 +211,19 @@ void gpio_motor_init() {
     rtl_printf("\n\rGPIO init... 1\n\r");
     // ----------------------------------------------------
     // Init GPIO control pin
-    gpio_init(&gpio_pwm_indicator, GPIO_PWM_INDICATOR);
-    gpio_dir(&gpio_pwm_indicator, PIN_OUTPUT);    // Direction: Output
-    gpio_mode(&gpio_pwm_indicator, PullNone);     // pull up
-    gpio_write(&gpio_pwm_indicator, ~0);
 
-    rtl_printf("\n\rGPIO init... 2\n\r");
-    gpio_init(&gpio_pwm_lock, GPIO_PWM_LOCK);
-    gpio_dir(&gpio_pwm_lock, PIN_OUTPUT);    // Direction: Output
-    gpio_mode(&gpio_pwm_lock, PullNone);     // pull up
-    gpio_write(&gpio_pwm_lock, ~0);
 
     rtl_printf("\n\rGPIO init... 3\n\r");
     gpio_init(&gpio_user_button, GPIO_USER_BUTTON);
-    gpio_dir(&gpio_user_button, PIN_OUTPUT);    // Direction: Output
+    gpio_dir(&gpio_user_button, PIN_INPUT);    // Direction: Output
     gpio_mode(&gpio_user_button, PullNone);     // pull up
     gpio_write(&gpio_user_button, ~0);
 
-    xMutexPWM = xSemaphoreCreateMutex();
-
-    rtl_printf("\n\rZero structures...\n\r");
-    memset(lstPWM, 0, sizeof(lstPWM));
+    xMutexGlobal = xSemaphoreCreateMutex();
 
 
-    SetPWM(&gpio_pwm_indicator, 20000, 1500);
-    SetPWM(&gpio_pwm_lock, 20000, 500);
-
-    gtimer_init(&timer_pwm, TIMER3);
-    gtimer_start_periodical(&timer_pwm, 100, (void*)pwm_timer_timeout_handler, &lstPWM);
+    //gtimer_init(&timer_global, TIMER3);
+    //gtimer_start_periodical(&timer_global, 1000, (void*)global_timer_timeout_handler, &lstPWM);
 
     //if(xTaskCreate(motor_thread, ((const char*)"motor"), 256, NULL, tskIDLE_PRIORITY + 3 + PRIORITIE_OFFSET, NULL) != pdPASS)
     //    rtl_printf("\n\r%s xTaskCreate(motor_thread) failed", __FUNCTION__);

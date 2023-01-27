@@ -68,32 +68,20 @@ struct tMessage
 };
 
 //======================================================
-typedef struct {
-    unsigned char devid;
-    unsigned char duration;     // duration in minutes
-    unsigned char param1;       //  parameter 1
-    unsigned char param2;       //  parameter 2
-    void *next;
-
-} sDevTask; // 4 bytes
+struct sTaskTime {
+    unsigned char wday;         // bit assigned, 星期幾
+    unsigned short begintime;   // number of hhmm
+    unsigned char reserved;
+};       // 4 bytes;
 //======================================================
-typedef struct {
-    unsigned char wday;             // bit assigned, 星期幾
-    unsigned short begintime;       // number of hhmm
-    unsigned char count_DevTask;    // 
-    unsigned char reserved;         // 
-    sDevTask *DevTaskHead;          // device list for task
-    void *next;
-} sTaskTime;                        // at least 8 bytes;
-//======================================================
-typedef struct {
+struct sDevice {
     unsigned char devid;            // device id from lora network
-    unsigned char dev_type;         // dev_type: 0 : 未定義 ,1 : 水閥門設備 ,2 : 智慧閥門設備 ,3 : ON/OFF Button Sensor ,4 : 開關設備
+    unsigned char duration;         // on duration in minutes
     unsigned char dev_state;        // 0: off, 1: on, 2: depend on sensor, 3: reset mode
-    unsigned char reserved;         // 
-} sDevice;      // 4 bytes
+    unsigned char dev_type;         // dev_type: 0 : 未定義 ,1 : 水閥門設備 ,2 : 智慧閥門設備 ,3 : ON/OFF Button Sensor ,4 : 開關設備
+};      // 4 bytes
 //======================================================
-typedef struct {
+struct sys_profile_t {
     uint32_t crc;               // Offset: 0
     char dev_ssid[36];          // Offset: 4
     char dev_pass[36];          // Offset: 40
@@ -103,20 +91,15 @@ typedef struct {
     uint16_t req_port;          // Offset: 256  - (443)
     uint16_t ota_port;          // Offset: 258
     uint8_t Server_Mode;        // Offset: 260  - 0 : wifi ap+dhcpserver+webserv, 1 : connected to another wifi+JC1278A lora Server
-    uint8_t count_Dev;          // Device count
     uint8_t count_Task;         // Task count
+    uint8_t count_Dev;          // dev count
     uint8_t reserved;
-    sDevice dev[255];           // Offset: 264, Length : 1020, device slots
-    uint32_t gatewayid;         // 1284, length: 4, gatewayid for this gateway, after registration, the gateway get it's id
-    uint32_t TaskTimeSize;      // size in bytes of TaskTime
-    union {
-        char buf[4];            // Offset: 1284, Length : depends on the task definition
-        sTaskTime *head;
-    } TaskTime;
-} sys_profile_t;      // 1328 bytes
+    struct sTaskTime TaskTime[10];      // Offset: 264, Length : 40  -  10 sets of task
+    struct sDevice dev[255];            // Offset: 304, Length : 1020
+    uint16_t gatewayid;         // gatewayid for this gateway, after registration, the gateway get it's id
+};      // 1328 bytes
 //======================================================
 extern char *GetSystemTimestamp(char *buf, int fmt);    // main.c
 extern void apSendMsg(QueueHandle_t q, unsigned char id, unsigned char param);  // main.c
 
 #endif
-

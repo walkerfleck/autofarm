@@ -26,11 +26,6 @@
 #include "analogin_api.h"
 #include "wdt_api.h"
 
-#define MBED_ADC_EXAMPLE_PIN_1    AD_1	// no pin out
-#define MBED_ADC_EXAMPLE_PIN_2    AD_2	// HDK, A1
-#define MBED_ADC_EXAMPLE_PIN_3    AD_3	// HDK, A2
-
-
 //========================================================================================================
 const char dev_version[]=DEV_VERSION;
 //========================================================================================================
@@ -42,7 +37,7 @@ extern u32 last_cmd_time;    // WDT timer of cmd_thread
 //========================================================================================================
 extern uint8_t g_NetState;
 //========================================================================================================
-QueueHandle_t pMotorCmdQueue = NULL;     // motor command queue, created by main.c
+//QueueHandle_t pMotorCmdQueue = NULL;     // motor command queue, created by main.c
 QueueHandle_t pSystemQueue = NULL;       // system messqge queue, created by main.c
 
 //========================================================================================================
@@ -72,7 +67,7 @@ extern TaskHandle_t hReqThread, hSysThread, hCmdThread;
 TaskHandle_t hMainThread;
 //========================================================================================================
 // ADC definitions
-
+/*
 #define AD_OFFSET 		0x3da							
 #define AD_GAIN_DIV	0x3b9							
 #define AD2MV(ad,offset,gain) (((ad>>4)-offset)*1000/gain)	
@@ -87,16 +82,6 @@ uint32_t GetADValue() {
     xSemaphoreTake(xMutexAD, portMAX_DELAY);
     //uint16_t offset, gain;
     analogin_init(&adc0, MBED_ADC_EXAMPLE_PIN_3);	// no pinout on HDK board
-    /*
-    sys_adc_calibration(0, &offset, &gain);
-    //printf("ADC:offset = 0x%x, gain = 0x%x\n", offset, gain);
-    if((offset==0xFFFF) || (gain==0xFFFF))
-    {
-        offset = AD_OFFSET;
-        gain = AD_GAIN_DIV;
-        //printf("ADC:offset = 0x%x, gain = 0x%x\n", offset, gain);
-    }
-    */
     for (i=0;i<4;i++) {
         adcdat0 = analogin_read_u16(&adc0);
         v_mv0 = AD2MV(adcdat0, AD_OFFSET, AD_GAIN_DIV);
@@ -111,6 +96,7 @@ uint32_t GetADValue() {
 
     return v_mv_sum;
 }
+*/
 //========================================================================================================
 void apSendMsg(QueueHandle_t q, unsigned char id, unsigned char param) {
     struct tMessage msg;
@@ -275,14 +261,60 @@ void ccmd_setrtc(void *arg){
         rtl_printf("\r\n[frtc] Usage: frtc=<year>,<month>,<day>,<hour>,<min>,<sec>");
     }
 }
-/*
+//========================================================================================================
+extern char* MQTTLogin(char *uuser, char *upass);
+extern int connectWifi(char *ssid, char *pass);
+//========================================================================================================
+void ccmd_test(void *arg) {
+    char *argv[8] = {0};
+    int argc, errorno=1;
+    struct tm timeinfo;
+    time_t tt;
+
+    if (arg){
+        argc = parse_param(arg, argv);
+        if (argv[1]!=NULL) {
+            if (argv[1][0]=='l') {
+                // output 
+                if (argv[2]!=NULL && argv[3]!=NULL) {
+                    char *ret = MQTTLogin(argv[2], argv[3]);
+                    rtl_printf("MTQQ returns : %s\n", ret);
+                    errorno=0;
+                }
+                else {
+                    errorno=1;
+                }
+            }
+            else if (argv[1][0]=='w') {
+                // output 
+                if (argv[2]!=NULL && argv[3]!=NULL) {
+                    int ret = connectWifi(argv[2], argv[3]);
+                    rtl_printf("WIFI returns : %d\n", ret);
+                    errorno=0;
+                }
+                else {
+                    errorno=1;
+                }
+            }
+        }
+    }
+    if (errorno!=0) {
+        rtl_printf("\r\n[ftst] Usage: fstt=<op>, [ args ]\n");
+        rtl_printf("=========================================================================================\n");
+        rtl_printf("                 *op=l Login to MTQQ Server\n");
+        rtl_printf("                  args : <username> <password> is required for login \n");
+        rtl_printf("=========================================================================================\n");
+        rtl_printf("                 *op=w connect to wifi\n");
+        rtl_printf("                  args : <ssid> <wifi_secret> is required for login \n");
+    }
+}
+
 //========================================================================================================
 // define customize commands
 // !! Note !!  the length of command should less than 4
 log_item_t cust_cmd_items[ ] = {
       {"fc", ccmd_query,},         // query system state
-      {"fres", ccmd_reboot,},       // reboot  system
-      {"frtc", ccmd_setrtc,},       // set RTC
+      {"ftst", ccmd_test,}         // query system state
 };
 //========================================================================================================
 // define the init function, let log_service.c to include our customized commands
@@ -293,7 +325,6 @@ void at_app_init(void) {
 //========================================================================================================
 log_module_init(at_app_init);
 //========================================================================================================
-*/
 //
 //
 //
@@ -306,9 +337,9 @@ void main(void) {
 
     // ----------------------------------------------------
 	/* Initialize log uart and at command service */
-	//console_init();
+	console_init();
 
-    xMutexAD = xSemaphoreCreateMutex();
+    //xMutexAD = xSemaphoreCreateMutex();
 
     // ----------------------------------------------------
     // 1ms timer handler
@@ -317,7 +348,7 @@ void main(void) {
 
     // ----------------------------------------------------
     // Initial queues
-    pMotorCmdQueue = xQueueCreate( 10, sizeof( struct tMessage ));
+    //pMotorCmdQueue = xQueueCreate( 10, sizeof( struct tMessage ));
     pSystemQueue = xQueueCreate( 10, sizeof( struct tMessage ));
 
     // initial RTC
@@ -329,8 +360,8 @@ void main(void) {
     // initial watchdog timer
     //watchdog_init(15000);
     //watchdog_start();
-	if(xTaskCreate(state_thread, ((const char*)"state_machine"), 512, NULL, tskIDLE_PRIORITY + 3 + PRIORITIE_OFFSET, hMainThread) != pdPASS)
-		rtl_printf("\n\r%s xTaskCreate(state_thread) failed", __FUNCTION__);
+	//if(xTaskCreate(state_thread, ((const char*)"state_machine"), 512, NULL, tskIDLE_PRIORITY + 3 + PRIORITIE_OFFSET, hMainThread) != pdPASS)
+	//	rtl_printf("\n\r%s xTaskCreate(state_thread) failed", __FUNCTION__);
 
     // ----------------------------------------------------
     // Initial gpio and motor controllers
