@@ -14,11 +14,9 @@ endif
 .PHONY: only
 only: toolchain
 	touch ../src/main.o
-	touch ../src/motor_control.o
 	touch ../src/net_util.o
 	touch ../src/state_parkey2.o
 	rm ../src/main.o
-	rm ../src/motor_control.o
 	rm ../src/net_util.o
 	rm ../src/state_parkey2.o
 	@$(MAKE) -f application.mk
@@ -29,11 +27,9 @@ only: toolchain
 .PHONY: ota
 ota: toolchain
 	touch ../src/main.o
-	touch ../src/motor_control.o
 	touch ../src/net_util.o
 	touch ../src/state_parkey2.o
 	rm ../src/main.o
-	rm ../src/motor_control.o
 	rm ../src/net_util.o
 	rm ../src/state_parkey2.o
 	@$(MAKE) -f application.mk
@@ -46,11 +42,9 @@ ota: toolchain
 .PHONY: ram_all
 ram_all: toolchain
 	touch ../src/main.o
-	touch ../src/motor_control.o
 	touch ../src/net_util.o
 	touch ../src/state_parkey2.o
 	rm ../src/main.o
-	rm ../src/motor_control.o
 	rm ../src/net_util.o
 	rm ../src/state_parkey2.o
 	@$(MAKE) -f application.mk

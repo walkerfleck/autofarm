@@ -30,7 +30,7 @@
 //========================================================================================================
 extern const char dev_version[];
 //========================================================================================================
-extern struct sys_profile_t sys_profile;    // from net_util.c
+extern sys_profile_t sys_profile;    // from net_util.c
 //========================================================================================================
 extern QueueHandle_t pMotorCmdQueue;     // motor command queue, created by main.c
 extern QueueHandle_t pCloudCmdQueue;     // command issued by cloud server, created by main.c
@@ -47,6 +47,7 @@ extern void net_main(void);         // net_util.c
 extern uint8_t identify_url(int *url_start_pos, char *url); // net_util.c
 extern unsigned char enable_detection_emulation;    // motor_control.c
 //========================================================================================================
+extern struct sFlags sysFlags;
 //gtimer_t global_timer;
 //volatile uint32_t global_tick=0;
 //========================================================================================================
@@ -57,6 +58,7 @@ extern uint8_t global_stop;
 //}
 extern volatile uint8_t dev_state, dev_err_counter, detection_counter;
 extern volatile u32 state_time, AD_time, detection_time;
+volatile u32 polling_time;
 //========================================================================================================
 extern TaskHandle_t hReqThread, hSysThread, hCmdThread;
 //========================================================================================================
@@ -65,6 +67,8 @@ void ccmd_ota(void *arg);
 void apSendMsg(QueueHandle_t q, unsigned char id, unsigned char param);
 //========================================================================================================
 uint16_t GetADValue();  // from main.c
+//========================================================================================================
+int8_t SendQueryDevice(uint8_t devid, uint8_t *data);   // from main.c
 //========================================================================================================
 //uint8_t __attribute__((section(".ram_image2.text"))) state_machine(unsigned char idMsg, unsigned char ucParam, void *data)  {
 uint8_t state_machine(unsigned char idMsg, unsigned char ucParam, void *data)  {
@@ -253,14 +257,16 @@ uint8_t state_machine(unsigned char idMsg, unsigned char ucParam, void *data)  {
 //          1 yyyy/mm/dd hh:mm:ss.ZZZ
 char *GetSystemTimestamp(char *buf, int fmt);
 //========================================================================================================
+extern gpio_t gpio_jc1278_set;
+//========================================================================================================
 //void __attribute__((section(".ram_image2.text"))) state_thread(void* in_id) {
 void state_thread(void* in_id) {
     struct tMessage sMsg;
     char tbuf[30];
-/*
+
     rtl_printf("State Machine Initializing\n");
-    vTaskDelay(5000);
-    rtl_printf("State Machine Started\n");
+    polling_time = rtw_get_current_time();
+
     // reading message queue
     // react state according to messge
     // generate response
@@ -270,6 +276,7 @@ void state_thread(void* in_id) {
         {
             rtl_printf("System Messge Received : %x\r\n", sMsg.ucMsg);
             switch (sMsg.ucMsg) {
+                /*
                 case MSG_EVENT_TRANSACTION_OK_OPEN:
                     state_machine(sMsg.ucMsg, sMsg.ucParam, NULL);
                     break;
@@ -288,17 +295,17 @@ void state_thread(void* in_id) {
                     state_time = rtw_get_current_time();
                     rtl_printf("\n\rState Changed to %d\n\r", dev_state);
                     break;
-
+*/
                 case MSG_EVENT_REBOOT:
                     rtl_printf("\n\rReboot the system\n\r");
                     sys_reset();
                     break;
-                    
+/*                    
                 case MSG_EVENT_UPGRADE_FIRMWARE:
                     rtl_printf("\n\rOTA Firmware\n\r");
                     sprintf(tbuf, "%d", sMsg.ucParam);
                     ccmd_ota(tbuf);
-                    break;
+*/                    break;
 
                 default:
                     // message not recognized, feed last state to state machine
@@ -312,12 +319,29 @@ void state_thread(void* in_id) {
         }
         vTaskDelay(50);
         //watchdog_refresh();
+        //
+        // 每隔一段時間polling一次所有device
+        if (rtw_get_passing_time_ms(polling_time)>10*1000) {
+            polling_time = rtw_get_current_time();
+            int i;
+            // 搜尋dev庫, 找到devid不連續的號碼, 或者是最後一號加1
+            
+            for(i=0;i<MAX_DEVICE_NUM;i++) {
+                if (sys_profile.dev[i].devid!=0) {
+                    uint8_t data[10];
+                    // send query, return 1 byte data
+                    if (SendQueryDevice(sys_profile.dev[i].devid, data)==0) {
+                        // 傳送成功, MQTT回報device state
+                    }
+                }
+            }
+            
+            // polling each device by SendQueryDevice(),
+            // send back the state to cloud
+            //
+        }
     }
-    */
-    while (global_stop==0) {
-        //rtl_printf("\r\nState Machine Trigger\r\n");
-        vTaskDelay(2000);
-    }
+    
 	vTaskDelete(NULL);
 }
 

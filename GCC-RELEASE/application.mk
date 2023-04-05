@@ -483,7 +483,7 @@ SRC_C += ../../../component/common/application/xmodem/uart_fw_update.c
 #user 
 SRC_C += ../src/main.c
 #SRC_C += ../src/LiquidCrystal_I2C.c
-SRC_C += ../src/motor_control.c
+#SRC_C += ../src/motor_control.c
 SRC_C += ../src/net_util.c
 #SRC_C += ../src/state_parkey3.c
 SRC_C += ../src/state_parkey2.c

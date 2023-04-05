@@ -61,6 +61,9 @@
 //======================================================
 #define OBJ_EXIST_TIME     10
 //======================================================
+//
+
+//======================================================
 struct tMessage
 {
    unsigned char ucMsg;
@@ -70,53 +73,168 @@ struct tMessage
 //======================================================
 typedef struct {
     unsigned char devid;
+    unsigned short wday : 4;
+    unsigned short begintime : 12;
     unsigned char duration;     // duration in minutes
     unsigned char param1;       //  parameter 1
     unsigned char param2;       //  parameter 2
-    void *next;
-
-} sDevTask; // 4 bytes
-//======================================================
-typedef struct {
-    unsigned char wday;             // bit assigned, 星期幾
-    unsigned short begintime;       // number of hhmm
-    unsigned char count_DevTask;    // 
-    unsigned char reserved;         // 
-    sDevTask *DevTaskHead;          // device list for task
-    void *next;
-} sTaskTime;                        // at least 8 bytes;
+    unsigned char param3;       //  parameter 3
+    unsigned char param4;       //  parameter 4
+} sDevTask; // 8 bytes
 //======================================================
 typedef struct {
     unsigned char devid;            // device id from lora network
     unsigned char dev_type;         // dev_type: 0 : 未定義 ,1 : 水閥門設備 ,2 : 智慧閥門設備 ,3 : ON/OFF Button Sensor ,4 : 開關設備
     unsigned char dev_state;        // 0: off, 1: on, 2: depend on sensor, 3: reset mode
     unsigned char reserved;         // 
-} sDevice;      // 4 bytes
+    unsigned char uid[12];
+} sDevice;      // 16 bytes
+//======================================================
+#define MAX_DEVICE_NUM  30
+#define MAX_TASK_NUM  60
 //======================================================
 typedef struct {
     uint32_t crc;               // Offset: 0
     char dev_ssid[36];          // Offset: 4
     char dev_pass[36];          // Offset: 40
-    char req_url[60];           // Offset: 76
-    char ota_url[60];           // Offset: 136
-    char ota_file[60];          // Offset: 196
-    uint16_t req_port;          // Offset: 256  - (443)
-    uint16_t ota_port;          // Offset: 258
-    uint8_t Server_Mode;        // Offset: 260  - 0 : wifi ap+dhcpserver+webserv, 1 : connected to another wifi+JC1278A lora Server
-    uint8_t count_Dev;          // Device count
-    uint8_t count_Task;         // Task count
-    uint8_t reserved;
-    sDevice dev[255];           // Offset: 264, Length : 1020, device slots
-    uint32_t gatewayid;         // 1284, length: 4, gatewayid for this gateway, after registration, the gateway get it's id
-    uint32_t TaskTimeSize;      // size in bytes of TaskTime
-    union {
-        char buf[4];            // Offset: 1284, Length : depends on the task definition
-        sTaskTime *head;
-    } TaskTime;
-} sys_profile_t;      // 1328 bytes
+    char ota_url[60];           // Offset: 76
+    char ota_file[20];          // Offset: 136
+    uint16_t ota_port;          // Offset: 156
+    uint8_t count_Dev;          // Device count Offset : 158
+    uint8_t count_Task;         // Task count   Offset : 159
+    sDevice dev[MAX_DEVICE_NUM];           // Offset: 160, Length : 480
+    sDevTask tasks[MAX_TASK_NUM];        // Offset: 640, Length : 480
+    uint32_t reversed;
+} sys_profile_t;      // 1120 bytes
 //======================================================
 extern char *GetSystemTimestamp(char *buf, int fmt);    // main.c
 extern void apSendMsg(QueueHandle_t q, unsigned char id, unsigned char param);  // main.c
+//======================================================
+struct sFlags {
+    uint8_t ReconnectWifi : 1;
+    uint8_t SystemTimeCalibrated : 1;
+    uint8_t AliveReceived : 1;
+    uint8_t ProfileUpdated : 1;
+    uint8_t JC1278A_setting : 1;
+    uint8_t Packet_received : 1;
+    uint8_t Reserved : 2;
+} ;
+//======================================================
+//配對 / 解除配對, gateway指定某個device為旗下的device
+//gateway必須指定device 12bytes的uid, 被指定的device就會成為client,
+//後續就用id來辨識device,
+//因為id為1-byte, 所以gateway最多可連結255個device
 
+struct sPacket_Match {
+    uint8_t head;           // must be "P"
+    uint8_t id;             // new id for the device
+    uint8_t cmd;            // G: 配對, K: 解除配對
+    uint8_t length;         // = 17
+    uint8_t uid[12];        // device's uid
+    uint8_t cksum;          // 
+};
+
+// client回覆配對, 
+struct sPacket_Match_Ack {
+    uint8_t head;           // "P"
+    uint8_t id;             // id of the device
+    uint8_t cmd;            // g: 配對, k: 解除配對
+    uint8_t length;         // = 6
+    uint8_t dev_type;       // device type
+    uint8_t cksum;          // 
+};
+
+// gateway回覆配對Ack, 
+struct sPacket_Match_AckAck {
+    uint8_t head;           // "P"
+    uint8_t id;             // id of the device
+    uint8_t cmd;            // g: 配對, k: 解除配對
+    uint8_t length;         // = 5
+    uint8_t cksum;          // 
+};
+//=================================================================================
+//詢問狀態, gateway會輪流詢問device目前狀態
+
+struct sPacket_Query {
+    uint8_t head;           // must be "P"
+    uint8_t id;             // id of the device
+    uint8_t cmd;            // Q
+    uint8_t length;         // = 5
+    uint8_t cksum;          // 
+};
+
+// client回覆Query, 
+struct sPacket_Query_Ack {
+    uint8_t head;           // "P"
+    uint8_t id;             // id of the device
+    uint8_t cmd;            // q
+    uint8_t length;         // = 15
+    uint8_t data[10];       // data from device's response, the length is variable and depends on device type
+    uint8_t cksum;          // 
+};
+
+// gateway回覆Query Ack, 
+struct sPacket_Query_AckAck {
+    uint8_t head;           // "P"
+    uint8_t id;             // id of the device
+    uint8_t cmd;            // q
+    uint8_t length;         // = 5
+    uint8_t cksum;          // 
+};
+
+//======================================================
+// device parameters(registers)
+//
+//      WATERGATE       SMARTGATE       BTNSENSOR       RELAY
+// 0      閥狀態         閥狀態          BTN狀態      RELAY狀態
+// 1     功能狀態       功能狀態
+// 2
+// 3
+// 4
+// 5
+// 6
+// 7
+// 8
+// 9
+//
+//======================================================
+//=================================================================================
+//設定parameters, gateway會依Service Logic發送parameters給client device
+
+
+struct sPacket_Set {
+    uint8_t head;           // must be "P"
+    uint8_t id;             // id of the device
+    uint8_t cmd;            // S
+    uint8_t length;         // = 15
+    uint8_t data[10];       // parameters, the length is variable and depends on device type
+    uint8_t cksum;          // 
+};
+
+// client回覆Set, 
+struct sPacket_Set_Ack {
+    uint8_t head;           // "P"
+    uint8_t id;             // id of the device
+    uint8_t cmd;            // s
+    uint8_t length;         // = 5
+    uint8_t cksum;          // summary of bytes from id to data, get the next ramdom seed and get the lowest byte
+};
+
+// gateway回覆Set Ack, 
+struct sPacket_Set_AckAck {
+    uint8_t head;           // "P"
+    uint8_t id;             // id of the device
+    uint8_t cmd;            // s
+    uint8_t length;         // = 5
+    uint8_t cksum;          // summary of bytes from id to data, get the next ramdom seed and get the lowest byte
+};
+
+//======================================================
+
+
+//======================================================
+//======================================================
+//======================================================
+//======================================================
 #endif
 

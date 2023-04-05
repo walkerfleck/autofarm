@@ -16,7 +16,11 @@ MEMORY
   SDRAM_RAM (rwx)  : ORIGIN = 0x30000000, LENGTH = 2M
 }
 
+/*
+    ROM_USED_RAM : 0x10000bc8 ~ 0x10005fff  for boot loader
 
+
+ */
 
 SECTIONS
 {
@@ -122,9 +126,6 @@ SECTIONS
   {
     KEEP(*(.infra.ram.start*))
     *(.mon.ram.text*)
-    *(.hal.flash.text*)    
-    *(.hal.sdrc.text*)
-    *(.hal.gpio.text*)
     *(.wlan.text*)
   } > BD_RAM
 
@@ -148,9 +149,6 @@ SECTIONS
   {
     __bss_start__ = .;
     .ram.bss$$Base = .;
-    *(.hal.flash.data*)    
-    *(.hal.sdrc.data*)    
-    *(.hal.gpio.data*)
     *(.wlan.bss*)
     *(COMMON)
     *(.wlan.bdsram.data*)
@@ -177,6 +175,9 @@ SECTIONS
   .sdr_text :
   {
     __sdram_data_start__ = .;
+    *(.hal.flash.text*)    
+    *(.hal.sdrc.text*)
+    *(.hal.gpio.text*)
     *(.sdram.text*)
     *(.p2p.text*)
     *(.wps.text*)
@@ -197,6 +198,9 @@ SECTIONS
 
   .sdr_data : 
   {
+    *(.hal.flash.data*)    
+    *(.hal.sdrc.data*)    
+    *(.hal.gpio.data*)
     *(.sdram.data*)
     *(.p2p.data*)
     *(.wps.data*)    
